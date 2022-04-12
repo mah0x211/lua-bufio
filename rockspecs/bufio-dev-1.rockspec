@@ -11,6 +11,7 @@ description = {
 }
 dependencies = {
     "lua >= 5.1",
+    "isa >= 0.2",
     "metamodule >= 0.3",
 }
 build = {
