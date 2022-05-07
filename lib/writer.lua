@@ -135,9 +135,9 @@ function Writer:flush()
     -- all data has been write
     self.buf = {}
     self.bufsize = 0
-    self.nflush = nflush
+    self.nflush = nflush or 0
 
-    return nflush
+    return self.nflush
 end
 
 --- write
