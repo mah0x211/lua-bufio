@@ -61,7 +61,7 @@ local r = reader.new(f)
 r:setbufsize(3)
 
 -- reads a string
-print(r:read()) -- hel
+print(r:read(3)) -- hel
 -- size of bufferred string
 print(r:size()) -- 0
 ```
@@ -115,7 +115,7 @@ r:prepend(s)
 print(r:size()) -- 11
 
 -- reads a string
-print(r:read()) -- hello world
+print(r:read(20)) -- hello world
 ```
 
 **Parameters**
@@ -123,7 +123,7 @@ print(r:read()) -- hello world
 - `n:integer`: number of bytes (default: `4096`).
 
 
-## s, ... = Reader:read( [n] )
+## s, err, ... = Reader:read( n )
 
 reads up to `n` bytes of a string from the `src`.
 
@@ -138,9 +138,10 @@ local r = reader.new(f)
 -- reads up to 3 bytes of a string
 -- actually, it reads `bufsize` bytes from `f` into a buffer and returns a 3-byte substring.
 print(r:read(3)) -- hel
+print(r:size()) -- 2 bytes buffered
 
 -- reads remaining buffer string
-print(r:read()) -- lo
+print(r:read(10)) -- lo
 ```
 
 **Parameters**
@@ -150,10 +151,11 @@ print(r:read()) -- lo
 **Returns**
 
 - `s:string`: a string.
-- `...:any`: if returned `s` is `nil`, the value returned from `src`.
+- `err:string`: a error string or the value returned from `src`.
+- `...:any`: the value returned from `src`.
 
 
-## s, ... = Reader:scan( delim [, is_pattern] )
+## s, err, ... = Reader:scan( delim [, is_pattern] )
 
 reads until the first occurrence of delimiter `delim` in the input from the `src`.
 
@@ -184,7 +186,7 @@ print(format('%q', s)) -- 'foo'
 s = r:scan('\n')
 print(s) -- nil
 
-print(r:read()) -- bar
+print(r:read(10)) -- bar
 ```
 
 **Parameters**
@@ -195,7 +197,39 @@ print(r:read()) -- bar
 **Returns**
 
 - `s:string`: a string.
-- `...:any`: if returned `s` is `nil`, the value returned from `src`.
+- `err:string`: a error string or the value returned from `src`.
+- `...:any`: the value returned from `src`.
+
+
+## s, err, ... = Reader:readin( n )
+
+reads up to `n` bytes of a string from the `src` directly.
+
+```lua
+local reader = require('bufio.reader')
+
+local f = assert(io.tmpfile())
+f:write('hello')
+f:seek('set')
+local r = reader.new(f)
+
+-- reads up to 3 bytes of a string
+print(r:readin(3)) -- hel
+print(r:size()) -- 0
+
+-- reads remaining buffer string
+print(r:readin(10)) -- lo
+```
+
+**Parameters**
+
+- `n:integer`: number of bytes to read.
+
+**Returns**
+
+- `s:string`: a string.
+- `err:string`: a error string or the value returned from `src`.
+- `...:any`: the value returned from `src`.
 
 
 ***

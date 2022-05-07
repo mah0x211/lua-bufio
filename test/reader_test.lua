@@ -43,11 +43,11 @@ function testcase.setbufsize()
 
     -- test that set buffering size
     r:setbufsize(5)
-    assert.equal(r.maxbufsize, 5)
+    assert.equal(r.bufsize, 5)
 
     -- test that set nil to default buffering size
     r:setbufsize()
-    assert.equal(r.maxbufsize, 4096)
+    assert.equal(r.bufsize, 4096)
 
     -- test that throws an error if invalid size
     local err = assert.throws(r.setbufsize, r, {})
@@ -93,7 +93,9 @@ function testcase.read()
     local r = reader.new({
         read = function()
             ncall = ncall + 1
-            return msg
+            local s = msg
+            msg = nil
+            return s
         end,
     })
     r:prepend('foo bar baz qux')
@@ -103,34 +105,35 @@ function testcase.read()
     assert.equal(data, 'foo b')
     assert.is_nil(err)
 
-    -- test that read empty-data
-    data = assert(r:read(0))
-    assert.equal(data, '')
-
     -- test that read all cached data
-    data = assert(r:read())
+    data = assert(r:read(10))
     assert.equal(data, 'ar baz qux')
 
     -- test that read data from src
-    data = assert(r:read())
+    local n = #msg
+    msg = msg .. '+extra data'
+    data = assert(r:read(n))
     assert.equal(data, 'data from src.read')
-    assert.equal(ncall, 1)
 
     -- test that cache extra data
-    data = assert(r:read(5))
-    assert.equal(data, string.sub(msg, 1, 5))
+    data = assert(r:read(6))
+    assert.equal(data, '+extra')
     assert.equal(ncall, 2)
-    assert.equal(r.buf, string.sub(msg, 6))
+    assert.equal(r.buf, ' data')
 
     -- test that read cached data
     data = assert(r:read(20))
-    assert.equal(data, string.sub(msg, 6))
-    assert.equal(ncall, 2)
+    assert.equal(data, ' data')
 
     -- test that read data larger than bufsize
+    msg = 'hello world'
     r = reader.new({
-        read = function()
-            return 'hello world'
+        read = function(_, nread)
+            if #msg > 0 then
+                local s = string.sub(msg, 1, nread)
+                msg = string.sub(msg, nread + 1)
+                return s
+            end
         end,
     })
     r:setbufsize(5)
@@ -145,29 +148,35 @@ function testcase.read()
         end,
     })
     local extra
-    data, err, extra = r:read()
-    assert.is_nil(data)
+    data, err, extra = r:read(6)
+    assert.equal(data, '')
     assert.match(err, 'read-error')
     assert.is_false(extra)
 
-    -- test that throws an error if src return invalid data
+    -- test that return an error if src return invalid data
     r = reader.new({
         read = function()
             return {}
         end,
     })
-    err = assert.throws(r.read, r)
-    assert.match(err, 'method returned an invalid string')
+    data, err = r:read(1)
+    assert.equal(data, '')
+    assert.match(err, 'method returned a non-string value')
 
-    -- test that throws an error if src return invalid data
+    -- test that return an error if src return a string larger than n
     r = reader.new({
         read = function()
             return 'hello world'
         end,
     })
     r:setbufsize(5)
-    err = assert.throws(r.read, r)
-    assert.match(err, 'method returned a string .+ larger than 5 bytes', false)
+    data, err = r:read(1)
+    assert.equal(data, '')
+    assert.match(err, 'method returned .+ larger than 5 bytes', false)
+
+    -- test that throws an error if n is not greater than 0
+    err = assert.throws(r.readin, r, 0)
+    assert.match(err, 'n must be uint greater than 0')
 
     -- test that throws an error with invalid argument
     for _, v in ipairs({
@@ -209,7 +218,7 @@ function testcase.scan()
     assert.is_nil(data)
     assert.is_nil(err)
     assert.equal(r:size(), 3)
-    assert.equal(r:read(), 'foo')
+    assert.equal(r:read(3), 'foo')
     f:close()
 
     -- test that throws an error if delimiter is invalid
@@ -221,3 +230,65 @@ function testcase.scan()
     assert.match(err, 'is_pattern must be boolean')
 end
 
+function testcase.readin()
+    local msg = 'data from src.read'
+    local r = reader.new({
+        read = function(_, n)
+            local s = string.sub(msg, 1, n)
+            msg = string.sub(msg, n + 1)
+            return s
+        end,
+    })
+
+    -- test that read from reader
+    local data, err, timeout = r:readin(5)
+    assert.equal(data, 'data ')
+    assert.is_nil(err)
+    assert.is_nil(timeout)
+
+    -- test that abort if reader return empty-string
+    data, err, timeout = r:readin(100)
+    assert.equal(data, 'from src.read')
+    assert.is_nil(err)
+    assert.is_nil(timeout)
+
+    -- test that abort if reader return nil
+    r = reader.new({
+        read = function()
+        end,
+    })
+    data, err, timeout = r:readin(5)
+    assert.equal(data, '')
+    assert.is_nil(timeout)
+    assert.is_nil(err)
+
+    -- test that return error if reader return a non-string value
+    r = reader.new({
+        read = function()
+            return true
+        end,
+    })
+    data, err, timeout = r:readin(5)
+    assert.equal(data, '')
+    assert.match(err, 'returned a non-string value')
+    assert.is_nil(timeout)
+
+    -- test that return error if reader returned a string is larger than n bytes
+    r = reader.new({
+        read = function(_, n)
+            return string.rep('a', n + 1)
+        end,
+    })
+    data, err, timeout = r:readin(5)
+    assert.equal(data, '')
+    assert.match(err, 'string larger than 5 bytes')
+    assert.is_nil(timeout)
+
+    -- test that throws an error if n is not greater than 0
+    err = assert.throws(r.readin, r, 0)
+    assert.match(err, 'n must be uint greater than 0')
+
+    -- test that throws an error if n is not uint
+    err = assert.throws(r.readin, r, true)
+    assert.match(err, 'n must be uint')
+end
