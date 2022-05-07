@@ -33,7 +33,7 @@ local is_table = isa.table
 local is_userdata = isa.userdata
 local is_function = isa.Function
 --- constants
-local MAX_BUFSIZE = 1024 * 4
+local DEFAULT_BUFSIZE = 1024 * 4
 
 --- varg2list
 --- @varg ...
@@ -47,7 +47,7 @@ end
 
 --- @class bufio.reader
 --- @field src table|userdata
---- @field maxbufsize integer
+--- @field bufsize integer
 --- @field buf string
 local Reader = {}
 
@@ -62,7 +62,7 @@ function Reader:init(src)
         error('src must have a read method', 2)
     end
 
-    self.maxbufsize = MAX_BUFSIZE
+    self.bufsize = DEFAULT_BUFSIZE
     self.src = src
     self.buf = ''
     return self
@@ -72,9 +72,9 @@ end
 --- @param n integer
 function Reader:setbufsize(n)
     if n == nil then
-        self.maxbufsize = MAX_BUFSIZE
+        self.bufsize = DEFAULT_BUFSIZE
     elseif is_uint(n) then
-        self.maxbufsize = n
+        self.bufsize = n
     else
         error('n must be uint', 2)
     end
@@ -98,61 +98,46 @@ end
 --- read
 --- @param n integer
 --- @return string s
+--- @return string err
 --- @return ...
 function Reader:read(n)
-    local nread = self.maxbufsize
-    if n == nil then
-        n = nread > 0 and nread or MAX_BUFSIZE
-    elseif not is_uint(n) then
-        error('n must be uint', 2)
-    elseif n == 0 then
-        return ''
-    elseif n > nread then
-        nread = n
+    if not is_uint(n) or n == 0 then
+        error('n must be uint greater than 0', 2)
     end
 
     local buf = self.buf
-    local nbyte = #buf
-    if nbyte > 0 then
-        if n >= nbyte then
-            -- consume all cached data
-            self.buf = ''
-            return buf
-        end
-
+    if #buf >= n then
         -- consume n-bytes of cached data
         self.buf = sub(buf, n + 1)
         return sub(buf, 1, n)
     end
 
     -- read from src
-    local ret = {
-        self.src:read(nread),
-    }
-    local s = ret[1]
-    if s == nil then
-        return unpack(ret)
-    elseif not is_string(s) then
-        error('src.read method returned an invalid string', 2)
-    elseif #s > nread then
-        error(format(
-                  'src.read method returned a string (%d bytes) larger than %d bytes',
-                  #s, n), 2)
-    end
+    local bufsize = self.bufsize > 0 and self.bufsize or DEFAULT_BUFSIZE
+    while 1 do
+        local nres, res = varg2list(self:readin(bufsize))
+        local s = res[1]
 
-    -- cache an extra substring
-    if n < nread then
-        self.buf = sub(s, n + 1)
-        return sub(s, 1, n)
-    end
+        if nres == 0 or #s == 0 then
+            self.buf = ''
+            res[1] = buf
+            return unpack(res)
+        end
 
-    return s
+        buf = buf .. s
+        if #buf >= n then
+            -- cache an extra substring
+            self.buf = sub(buf, n + 1)
+            return sub(buf, 1, n)
+        end
+    end
 end
 
 --- scan
 --- @param delim string
 --- @param is_pattern boolean
 --- @return string s
+--- @return string err
 --- @return ...
 function Reader:scan(delim, is_pattern)
     if not is_string(delim) then
@@ -161,27 +146,27 @@ function Reader:scan(delim, is_pattern)
         error('is_pattern must be boolean', 2)
     end
 
+    local bufsize = self.bufsize > 0 and self.bufsize or DEFAULT_BUFSIZE
     local plain = is_pattern ~= true
-    local s = ''
+    local str = ''
     local pos = 1
     while 1 do
-        local ret = {
-            self:read(),
-        }
-        local chunk = ret[1]
-        if chunk == nil or #chunk == 0 then
-            self:prepend(s)
-            ret[1] = nil
-            return unpack(ret)
-        end
-        s = s .. chunk
+        local nres, res = varg2list(self:read(bufsize))
+        local s = res[1]
 
-        local head, tail = find(s, delim, pos, plain)
-        if head then
-            self:prepend(sub(s, tail + 1))
-            return sub(s, 1, head - 1)
+        if nres == 0 or #s == 0 then
+            self:prepend(str)
+            res[1] = nil
+            return unpack(res)
         end
-        pos = #s
+        str = str .. s
+
+        local head, tail = find(str, delim, pos, plain)
+        if head then
+            self:prepend(sub(str, tail + 1))
+            return sub(str, 1, head - 1)
+        end
+        pos = #str
     end
 end
 
