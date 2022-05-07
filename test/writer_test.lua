@@ -211,7 +211,7 @@ function testcase.flush()
         'o',
     })
 
-    -- test that throws an error if a bytes written is greater than data size
+    -- test that return an error if a bytes written is greater than data size
     w = writer.new({
         write = function()
             return 100
@@ -220,10 +220,11 @@ function testcase.flush()
     w.buf = {
         'hello',
     }
-    err = assert.throws(w.flush, w)
+    len, err = w:flush()
+    assert.is_nil(len)
     assert.match(err, 'method returned a number of bytes written greater than 5')
 
-    -- test that throws an error if dst returned invalid value type
+    -- test that return an error if dst returned invalid value type
     w = writer.new({
         write = function()
             return {}
@@ -232,7 +233,8 @@ function testcase.flush()
     w.buf = {
         'hello',
     }
-    err = assert.throws(w.flush, w)
+    len, err = w:flush()
+    assert.is_nil(len)
     assert.match(err, 'method returned an invalid number of bytes written')
 end
 
