@@ -104,13 +104,16 @@ function testcase.write()
             return nil, 'write-error', true
         end,
     })
-    w:write('foo')
+    w.buf = {
+        'bar',
+    }
+    w.bufsize = 3
     w:setbufsize(0)
-    len, err, timeout = w:write('')
+    len, err, timeout = w:write('foo')
     assert.is_nil(len)
     assert.equal(err, 'write-error')
     assert.equal(w.buf, {
-        'foo',
+        'bar',
     })
     assert.is_true(timeout)
 
@@ -147,8 +150,8 @@ function testcase.flush()
     local w = writer.new({
         write = function(_, data)
             ncall = ncall + 1
-            msg = msg .. data
-            return #data
+            msg = msg .. string.sub(data, 1, 1)
+            return 1
         end,
     })
 
@@ -165,39 +168,48 @@ function testcase.flush()
     assert.equal(w:flushed(), len)
     assert.is_nil(err)
     assert.is_nil(timeout)
-    assert.equal(ncall, 3)
+    assert.equal(ncall, 12)
     assert.equal(w.buf, {})
     assert.equal(w:size(), 0)
     assert.equal(msg, 'hello world!')
 
-    -- test that partially flush buffer
+    -- test that abort if writer returns no value
     w = writer.new({
-        write = function(_, data)
-            ncall = ncall + 1
-            msg = msg .. string.sub(data, 1, 1)
-            return 1
+        write = function()
         end,
     })
     w.buf = {
         'hello',
-        ' world!',
     }
-    w.bufsize = #table.concat(w.buf)
-    nbyte = w.bufsize
+    len, err, timeout = w:flush()
+    assert.is_nil(len)
+    assert.is_nil(err)
+    assert.is_nil(timeout)
+    assert.equal(w.buf, {
+        'hello',
+    })
+
+    -- test that abort if writer returns multiple values
     ncall = 0
-    msg = ''
-    while w:size() > 0 do
-        len = assert(w:flush())
-        if msg == 'hello ' then
-            assert.equal(len, 2)
-        else
-            assert.equal(len, 1)
-        end
-    end
-    assert.equal(w.buf, {})
-    assert.equal(w:size(), 0)
-    assert.equal(msg, 'hello world!')
-    assert.equal(ncall, nbyte)
+    w = writer.new({
+        write = function()
+            ncall = ncall + 1
+            if ncall > 1 then
+                return 1, 'error', false
+            end
+            return 3
+        end,
+    })
+    w.buf = {
+        'hello',
+    }
+    len, err, timeout = w:flush()
+    assert.equal(len, 4)
+    assert.equal(err, 'error')
+    assert.is_false(timeout)
+    assert.equal(w.buf, {
+        'o',
+    })
 
     -- test that throws an error if a bytes written is greater than data size
     w = writer.new({
@@ -222,5 +234,47 @@ function testcase.flush()
     }
     err = assert.throws(w.flush, w)
     assert.match(err, 'method returned an invalid number of bytes written')
+end
+
+function testcase.writeout()
+    local msg = ''
+    local w = writer.new({
+        write = function(_, data)
+            msg = msg .. data
+            return #data
+        end,
+    })
+
+    -- test that write directly to writer
+    local len, err, timeout = w:writeout('foo')
+    assert.equal(len, 3)
+    assert.equal(w:flushed(), 0)
+    assert.is_nil(err)
+    assert.is_nil(timeout)
+    assert.equal(w.buf, {})
+    assert.equal(w:size(), 0)
+    assert.equal(msg, 'foo')
+
+    -- test that abort if writer returns 0
+    w = writer.new({
+        write = function()
+            return 0
+        end,
+    })
+    len, err, timeout = w:writeout('foo')
+    assert.is_nil(len)
+    assert.is_nil(err)
+    assert.is_nil(timeout)
+
+    -- test that abort if writer returns multiple values
+    w = writer.new({
+        write = function(_, data)
+            return #data, 'error', true
+        end,
+    })
+    len, err, timeout = w:writeout('foo')
+    assert.equal(len, 3)
+    assert.equal(err, 'error')
+    assert.is_true(timeout)
 end
 

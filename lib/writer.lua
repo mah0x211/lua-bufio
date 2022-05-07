@@ -21,6 +21,7 @@
 --
 --- assign to local
 local format = string.format
+local select = select
 local sub = string.sub
 local remove = table.remove
 local unpack = unpack or table.unpack
@@ -32,6 +33,16 @@ local is_userdata = isa.userdata
 local is_function = isa.Function
 --- constants
 local MAX_BUFSIZE = 1024 * 4
+
+--- varg2list
+--- @varg ...
+--- @return integer n number of arguments
+--- @return table<integer, any> list
+local function varg2list(...)
+    return select('#', ...), {
+        ...,
+    }
+end
 
 --- @class bufio.writer
 --- @field dst table|userdata
@@ -95,39 +106,35 @@ end
 --- @return ...
 function Writer:flush()
     local buf = self.buf
-    local dst = self.dst
-    local total = 0
-
-    -- clear nflush
-    self.nflush = 0
+    local nflush
 
     while #buf > 0 do
         local s = buf[1]
         local nwrite = #s
-        local ret = {
-            dst:write(s),
-        }
-        local len = ret[1]
+        local nres, res = varg2list(self:writeout(s))
 
-        if len == nil then
-            return unpack(ret)
-        elseif not is_uint(len) then
-            error(
-                'dst.write method returned an invalid number of bytes written',
-                2)
-        elseif len > nwrite then
-            error(format(
-                      'dst.write method returned a number of bytes written greater than %d',
-                      nwrite), 2)
+        if nres == 0 then
+            self.nflush = nflush or 0
+            res[1] = nflush
+            return unpack(res)
         end
 
-        total = total + len
-        if len < nwrite then
-            buf[1] = sub(s, len + 1)
-            self.bufsize = self.bufsize - total
-            self.nflush = total
-            ret[1] = total
-            return unpack(ret)
+        local n = res[1]
+        if n then
+            nflush = (nflush or 0) + n
+            if n < nwrite then
+                buf[1] = sub(s, n + 1)
+                self.bufsize = self.bufsize - nflush
+                self.nflush = nflush
+                res[1] = nflush
+                return unpack(res)
+            end
+        end
+
+        if nres > 1 then
+            self.nflush = nflush
+            res[1] = nflush
+            return unpack(res)
         end
         remove(buf, 1)
     end
@@ -135,9 +142,9 @@ function Writer:flush()
     -- all data has been write
     self.buf = {}
     self.bufsize = 0
-    self.nflush = total
+    self.nflush = nflush
 
-    return total
+    return nflush
 end
 
 --- write
@@ -150,22 +157,19 @@ function Writer:write(s)
     end
 
     local nwrite = #s
+    if nwrite == 0 then
+        return 0
+    end
+
     local maxbufsize = self.maxbufsize
     local avail = self:available()
     if self.bufsize > 0 and
         (avail <= 0 or nwrite > maxbufsize or avail - nwrite < 0) then
         -- buffer space not available
-        local ret = {
-            self:flush(),
-        }
-        if ret[2] then
-            ret[1] = nil
-            return unpack(ret)
+        local nres, res = varg2list(self:flush())
+        if nres == 0 or nres > 1 then
+            return unpack(res)
         end
-    end
-
-    if nwrite == 0 then
-        return 0
     end
 
     -- NOTE: concatenate a data with the last data to reduce the number of
@@ -184,6 +188,46 @@ function Writer:write(s)
     end
 
     return nwrite
+end
+
+--- writeout
+--- @param s string
+--- @return integer len
+--- @return ...
+function Writer:writeout(s)
+    local dst = self.dst
+    local nwrite
+
+    while 1 do
+        local nres, res = varg2list(dst:write(s))
+        local n = res[1]
+
+        if n == nil then
+            res[1] = nwrite
+            return unpack(res)
+        elseif not is_uint(n) then
+            error(
+                'dst.write method returned an invalid number of bytes written',
+                2)
+        elseif n > #s then
+            error(format(
+                      'dst.write method returned a number of bytes written greater than %d',
+                      #s), 2)
+        elseif n == 0 then
+            res[1] = nwrite
+            return unpack(res)
+        end
+
+        nwrite = (nwrite or 0) + n
+        if nres > 1 then
+            res[1] = nwrite
+            return unpack(res)
+        elseif n == #s then
+            return nwrite
+        end
+
+        s = sub(s, n + 1)
+    end
 end
 
 return {
