@@ -221,3 +221,65 @@ function testcase.scan()
     assert.match(err, 'is_pattern must be boolean')
 end
 
+function testcase.readin()
+    local msg = 'data from src.read'
+    local r = reader.new({
+        read = function(_, n)
+            local s = string.sub(msg, 1, n)
+            msg = string.sub(msg, n + 1)
+            return s
+        end,
+    })
+
+    -- test that read from reader
+    local data, err, timeout = r:readin(5)
+    assert.equal(data, 'data ')
+    assert.is_nil(err)
+    assert.is_nil(timeout)
+
+    -- test that abort if reader return empty-string
+    data, err, timeout = r:readin(100)
+    assert.equal(data, 'from src.read')
+    assert.is_nil(err)
+    assert.is_nil(timeout)
+
+    -- test that abort if reader return nil
+    r = reader.new({
+        read = function()
+        end,
+    })
+    data, err, timeout = r:readin(5)
+    assert.equal(data, '')
+    assert.is_nil(timeout)
+    assert.is_nil(err)
+
+    -- test that return error if reader return a non-string value
+    r = reader.new({
+        read = function()
+            return true
+        end,
+    })
+    data, err, timeout = r:readin(5)
+    assert.equal(data, '')
+    assert.match(err, 'returned a non-string value')
+    assert.is_nil(timeout)
+
+    -- test that return error if reader returned a string is larger than n bytes
+    r = reader.new({
+        read = function(_, n)
+            return string.rep('a', n + 1)
+        end,
+    })
+    data, err, timeout = r:readin(5)
+    assert.equal(data, '')
+    assert.match(err, 'string larger than 5 bytes')
+    assert.is_nil(timeout)
+
+    -- test that throws an error if n is not greater than 0
+    err = assert.throws(r.readin, r, 0)
+    assert.match(err, 'n must be uint greater than 0')
+
+    -- test that throws an error if n is not uint
+    err = assert.throws(r.readin, r, true)
+    assert.match(err, 'n must be uint')
+end

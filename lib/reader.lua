@@ -22,6 +22,7 @@
 --- assign to local
 local find = string.find
 local format = string.format
+local select = select
 local sub = string.sub
 local unpack = unpack or table.unpack
 local isa = require('isa')
@@ -33,6 +34,16 @@ local is_userdata = isa.userdata
 local is_function = isa.Function
 --- constants
 local MAX_BUFSIZE = 1024 * 4
+
+--- varg2list
+--- @varg ...
+--- @return integer n number of arguments
+--- @return table<integer, any> list
+local function varg2list(...)
+    return select('#', ...), {
+        ...,
+    }
+end
 
 --- @class bufio.reader
 --- @field src table|userdata
@@ -171,6 +182,47 @@ function Reader:scan(delim, is_pattern)
             return sub(s, 1, head - 1)
         end
         pos = #s
+    end
+end
+
+--- readin
+--- @param n integer
+--- @return string s
+--- @return string err
+--- @return ...
+function Reader:readin(n)
+    if not is_uint(n) or n == 0 then
+        error('n must be uint greater than 0', 2)
+    end
+
+    local nread = n
+    local src = self.src
+    local str = ''
+    while 1 do
+        local nres, res = varg2list(src:read(n))
+        local s = res[1]
+
+        if nres == 0 or not s then
+            res[1] = str
+            return unpack(res)
+        elseif not is_string(s) then
+            return str, 'src.read method returned a non-string value'
+        end
+
+        local slen = #s
+        if slen == 0 then
+            res[1] = str
+            return unpack(res)
+        elseif slen == n then
+            return str .. s
+        elseif slen < n then
+            str = str .. s
+            n = n - slen
+        else
+            return str, format(
+                       'src.read method returned a string larger than %d bytes',
+                       nread)
+        end
     end
 end
 
