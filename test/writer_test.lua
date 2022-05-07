@@ -173,6 +173,16 @@ function testcase.flush()
     assert.equal(w:size(), 0)
     assert.equal(msg, 'hello world!')
 
+    -- test that return 0 if no-buffers
+    w = writer.new({
+        write = function()
+        end,
+    })
+    len, err, timeout = w:flush()
+    assert.equal(len, 0)
+    assert.is_nil(err)
+    assert.is_nil(timeout)
+
     -- test that abort if writer returns no value
     w = writer.new({
         write = function()
