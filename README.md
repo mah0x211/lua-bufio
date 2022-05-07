@@ -347,7 +347,7 @@ returns a size of the string flushed to `dst`.
 - `n:integer`: size of flushed string.
 
 
-## len, ... = Writer:flush()
+## len, err, ... = Writer:flush()
 
 flush the buffered strings to `dst`.
 
@@ -377,10 +377,11 @@ print(dst.data) -- 'hello'
 **Returns**
 
 - `len:integer`: number of bytes flushed.
+- `err:string`: a error string or the value returned from `dst.write` method.
 - `...:any`: the value returned from `dst.write` method.
 
 
-## len, ... = Writer:write( s )
+## len, err, ... = Writer:write( s )
 
 write a `s` to the buffer. when the buffer is full, the bufferred strings is automatically flushed to `dst`.
 
@@ -418,10 +419,11 @@ print(dump(dst.data))
 **Returns**
 
 - `len:integer`: number of bytes written.
+- `err:string`: a error string or the value returned from `dst.write` method.
 - `...:any`: the value returned from `dst.write` method.
 
 
-## len, ... = Writer:writeout( s )
+## len, err, ... = Writer:writeout( s )
 
 write a `s` directly to the `dst`.
 
@@ -454,4 +456,5 @@ print(dump(dst.data))
 **Returns**
 
 - `len:integer`: number of bytes written.
+- `err:string`: a error string or the value returned from `dst.write` method.
 - `...:any`: the value returned from `dst.write` method.

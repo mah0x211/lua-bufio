@@ -102,7 +102,7 @@ end
 
 --- flush
 --- @return integer len
---- @return any err
+--- @return string err
 --- @return ...
 function Writer:flush()
     local buf = self.buf
@@ -112,30 +112,23 @@ function Writer:flush()
         local s = buf[1]
         local nwrite = #s
         local nres, res = varg2list(self:writeout(s))
+        local n = res[1]
 
-        if nres == 0 then
+        if nres == 0 or not n then
             self.nflush = nflush or 0
             res[1] = nflush
             return unpack(res)
         end
 
-        local n = res[1]
-        if n then
-            nflush = (nflush or 0) + n
-            if n < nwrite then
-                buf[1] = sub(s, n + 1)
-                self.bufsize = self.bufsize - nflush
-                self.nflush = nflush
-                res[1] = nflush
-                return unpack(res)
-            end
-        end
-
-        if nres > 1 then
+        nflush = (nflush or 0) + n
+        if n < nwrite then
+            buf[1] = sub(s, n + 1)
+            self.bufsize = self.bufsize - nflush
             self.nflush = nflush
             res[1] = nflush
             return unpack(res)
         end
+
         remove(buf, 1)
     end
 
@@ -150,6 +143,7 @@ end
 --- write
 --- @param s string
 --- @return integer len
+--- @return string err
 --- @return ...
 function Writer:write(s)
     if not is_string(s) then
@@ -193,40 +187,42 @@ end
 --- writeout
 --- @param s string
 --- @return integer len
+--- @return string err
 --- @return ...
 function Writer:writeout(s)
     local dst = self.dst
+    local len = #s
     local nwrite
 
     while 1 do
         local nres, res = varg2list(dst:write(s))
         local n = res[1]
 
-        if n == nil then
+        if nres == 0 or not n then
             res[1] = nwrite
             return unpack(res)
         elseif not is_uint(n) then
-            error(
-                'dst.write method returned an invalid number of bytes written',
-                2)
-        elseif n > #s then
-            error(format(
-                      'dst.write method returned a number of bytes written greater than %d',
-                      #s), 2)
+            return nwrite,
+                   'dst.write method returned an invalid number of bytes written'
         elseif n == 0 then
             res[1] = nwrite
             return unpack(res)
-        end
-
-        nwrite = (nwrite or 0) + n
-        if nres > 1 then
-            res[1] = nwrite
-            return unpack(res)
         elseif n == #s then
-            return nwrite
+            res[1] = (nwrite or 0) + n
+            return unpack(res)
+        elseif n < #s then
+            nwrite = (nwrite or 0) + n
+            if nres > 1 then
+                res[1] = nwrite
+                return unpack(res)
+            end
+            s = sub(s, n + 1)
+        else
+            return nwrite,
+                   format(
+                       'dst.write method returned a number of bytes written greater than %d',
+                       len)
         end
-
-        s = sub(s, n + 1)
     end
 end
 

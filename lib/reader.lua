@@ -118,17 +118,16 @@ function Reader:read(n)
         local nres, res = varg2list(self:readin(bufsize))
         local s = res[1]
 
-        if nres == 0 or #s == 0 then
-            self.buf = ''
-            res[1] = buf
-            return unpack(res)
-        end
-
         buf = buf .. s
         if #buf >= n then
             -- cache an extra substring
             self.buf = sub(buf, n + 1)
-            return sub(buf, 1, n)
+            res[1] = sub(buf, 1, n)
+            return unpack(res)
+        elseif nres > 1 or #s == 0 then
+            self.buf = ''
+            res[1] = buf
+            return unpack(res)
         end
     end
 end
@@ -199,7 +198,8 @@ function Reader:readin(n)
             res[1] = str
             return unpack(res)
         elseif slen == n then
-            return str .. s
+            res[1] = str .. s
+            return unpack(res)
         elseif slen < n then
             str = str .. s
             n = n - slen
