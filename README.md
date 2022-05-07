@@ -313,7 +313,7 @@ returns a size of the string flushed to `dst`.
 - `n:integer`: size of flushed string.
 
 
-## len, ... = Reader:flush()
+## len, ... = Writer:flush()
 
 flush the buffered strings to `dst`.
 
@@ -374,6 +374,42 @@ print(dump(dst.data))
 -- {
 --     [1] = "hello",
 --     [2] = "world"
+-- }
+```
+
+**Parameters**
+
+- `s:string`: a string.
+
+**Returns**
+
+- `len:integer`: number of bytes written.
+- `...:any`: the value returned from `dst.write` method.
+
+
+## len, ... = Writer:writeout( s )
+
+write a `s` directly to the `dst`.
+
+```lua
+local dump = require('dump')
+local writer = require('bufio.writer')
+local dst = {
+    data = {},
+    write = function(self, s)
+        self.data[#self.data + 1] = s
+        return #s
+    end,
+}
+local w = writer.new(dst)
+
+-- write a string to buffer
+print(w:writeout('hello')) -- 5
+print(w:size()) -- 0
+
+print(dump(dst.data))
+-- {
+--     [1] = "hello",
 -- }
 ```
 
