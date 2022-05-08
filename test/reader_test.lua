@@ -118,7 +118,7 @@ function testcase.read()
     -- test that cache extra data
     data = assert(r:read(6))
     assert.equal(data, '+extra')
-    assert.equal(ncall, 2)
+    assert.equal(ncall, 1)
     assert.equal(r.buf, ' data')
 
     -- test that read cached data

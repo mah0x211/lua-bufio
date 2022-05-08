@@ -179,36 +179,20 @@ function Reader:readin(n)
         error('n must be uint greater than 0', 2)
     end
 
-    local nread = n
-    local src = self.src
-    local str = ''
-    while 1 do
-        local nres, res = varg2list(src:read(n))
-        local s = res[1]
-
-        if nres == 0 or not s then
-            res[1] = str
-            return unpack(res)
-        elseif not is_string(s) then
-            return str, 'src.read method returned a non-string value'
-        end
-
-        local slen = #s
-        if slen == 0 then
-            res[1] = str
-            return unpack(res)
-        elseif slen == n then
-            res[1] = str .. s
-            return unpack(res)
-        elseif slen < n then
-            str = str .. s
-            n = n - slen
-        else
-            return str, format(
-                       'src.read method returned a string larger than %d bytes',
-                       nread)
-        end
+    local nres, res = varg2list(self.src:read(n))
+    local s = res[1]
+    if nres == 0 or not s then
+        res[1] = ''
+    elseif not is_string(s) then
+        res[1] = ''
+        res[2] = 'src.read method returned a non-string value'
+    elseif #s > n then
+        res[1] = ''
+        res[2] = format(
+                     'src.read method returned a string larger than %d bytes', n)
     end
+
+    return unpack(res)
 end
 
 return {
