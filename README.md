@@ -30,6 +30,15 @@ local r = reader.new(f)
 
 -- create with a table that contains a read function
 r = reader.new({
+    -- a read must be the following function:
+    --
+    --   s:nil|string, err:any = read(self, n:uint)
+    --
+    -- the caller throws an error in the following cases:
+    --
+    --   * it returned non-nil s is not string.
+    --   * it returned s length greater than n.
+    --
     read = function(_, n)
         return 'hello', 'error'
     end
@@ -123,7 +132,7 @@ print(r:read(20)) -- hello world
 - `n:integer`: number of bytes (default: `4096`).
 
 
-## s, err, ... = Reader:read( n )
+## s, err = Reader:read( n )
 
 reads up to `n` bytes of a string from the `src`.
 
@@ -151,11 +160,10 @@ print(r:read(10)) -- lo
 **Returns**
 
 - `s:string`: a string.
-- `err:string`: a error string or the value returned from `src`.
-- `...:any`: the value returned from `src`.
+- `err:any`: a error value returned from `src`.
 
 
-## s, err, ... = Reader:scan( delim [, is_pattern] )
+## s, err = Reader:scan( delim [, is_pattern] )
 
 reads until the first occurrence of delimiter `delim` in the input from the `src`.
 
@@ -197,11 +205,10 @@ print(r:read(10)) -- bar
 **Returns**
 
 - `s:string`: a string.
-- `err:string`: a error string or the value returned from `src`.
-- `...:any`: the value returned from `src`.
+- `err:any`: a error value returned from `src`.
 
 
-## s, err, ... = Reader:readin( n )
+## s, err = Reader:readin( n )
 
 reads up to `n` bytes of a string from the `src` directly.
 
@@ -228,8 +235,7 @@ print(r:readin(10)) -- lo
 **Returns**
 
 - `s:string`: a string.
-- `err:string`: a error string or the value returned from `src`.
-- `...:any`: the value returned from `src`.
+- `err:any`: a error value returned from `src`.
 
 
 ***
@@ -248,8 +254,18 @@ local writer = require('bufio.writer')
 local f = assert(io.tmpfile())
 local w = writer.new(f)
 
--- create with a table that contains a read function
+-- create with a table that contains a write function
 w = writer.new({
+    -- a write must be the following function:
+    --
+    --   n:nil|uint, err:any = write(self, s:string)
+    --
+    -- the caller throws an error in the following cases:
+    --
+    --   * it returned n less than 0.
+    --   * it returned n greater than #s.
+    --   * it returned 0 without error when #s > 0.
+    --
     write = function(_, s)
         return #s, 'error'
     end,
@@ -347,7 +363,7 @@ returns a size of the string flushed to `dst`.
 - `n:integer`: size of flushed string.
 
 
-## len, err, ... = Writer:flush()
+## len, err = Writer:flush()
 
 flush the buffered strings to `dst`.
 
@@ -377,11 +393,10 @@ print(dst.data) -- 'hello'
 **Returns**
 
 - `len:integer`: number of bytes flushed.
-- `err:string`: a error string or the value returned from `dst.write` method.
-- `...:any`: the value returned from `dst.write` method.
+- `err:any`: an error value returned from `dst.write` method.
 
 
-## len, err, ... = Writer:write( s )
+## len, err = Writer:write( s )
 
 write a `s` to the buffer. when the buffer is full, the bufferred strings is automatically flushed to `dst`.
 
@@ -419,8 +434,7 @@ print(dump(dst.data))
 **Returns**
 
 - `len:integer`: number of bytes written.
-- `err:string`: a error string or the value returned from `dst.write` method.
-- `...:any`: the value returned from `dst.write` method.
+- `err:any`: an error value returned from `dst.write` method.
 
 
 ## len, err, ... = Writer:writeout( s )
@@ -456,5 +470,4 @@ print(dump(dst.data))
 **Returns**
 
 - `len:integer`: number of bytes written.
-- `err:string`: a error string or the value returned from `dst.write` method.
-- `...:any`: the value returned from `dst.write` method.
+- `err:any`: an error value returned from `dst.write` method.

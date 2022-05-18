@@ -22,9 +22,7 @@
 --- assign to local
 local find = string.find
 local format = string.format
-local select = select
 local sub = string.sub
-local unpack = unpack or table.unpack
 local isa = require('isa')
 local is_boolean = isa.boolean
 local is_string = isa.string
@@ -35,35 +33,25 @@ local is_function = isa.Function
 --- constants
 local DEFAULT_BUFSIZE = 1024 * 4
 
---- varg2list
---- @varg ...
---- @return integer n number of arguments
---- @return table<integer, any> list
-local function varg2list(...)
-    return select('#', ...), {
-        ...,
-    }
-end
-
 --- @class bufio.reader
---- @field src table|userdata
+--- @field reader table|userdata
 --- @field bufsize integer
 --- @field buf string
 local Reader = {}
 
 --- new
---- @param src table|userdata
+--- @param reader table|userdata
 --- @return bufio.reader
 --- @return string? err
-function Reader:init(src)
-    if not is_table(src) and not is_userdata(src) then
-        error('src must be table or userdata', 2)
-    elseif not is_function(src.read) then
-        error('src must have a read method', 2)
+function Reader:init(reader)
+    if not is_table(reader) and not is_userdata(reader) then
+        error('reader must be table or userdata', 2)
+    elseif not is_function(reader.read) then
+        error('reader.read must be function', 2)
     end
 
     self.bufsize = DEFAULT_BUFSIZE
-    self.src = src
+    self.reader = reader
     self.buf = ''
     return self
 end
@@ -98,8 +86,7 @@ end
 --- read
 --- @param n integer
 --- @return string s
---- @return string err
---- @return ...
+--- @return any? err
 function Reader:read(n)
     if not is_uint(n) or n == 0 then
         error('n must be uint greater than 0', 2)
@@ -112,22 +99,20 @@ function Reader:read(n)
         return sub(buf, 1, n)
     end
 
-    -- read from src
+    -- read from reader
     local bufsize = self.bufsize > 0 and self.bufsize or DEFAULT_BUFSIZE
-    while 1 do
-        local nres, res = varg2list(self:readin(bufsize))
-        local s = res[1]
+    while true do
+        local s, err = self:readin(bufsize)
 
         buf = buf .. s
-        if #buf >= n then
+        if err or #s == 0 then
+            self.buf = ''
+            return buf, err
+        elseif #buf >= n then
             -- cache an extra substring
             self.buf = sub(buf, n + 1)
-            res[1] = sub(buf, 1, n)
-            return unpack(res)
-        elseif nres > 1 or #s == 0 then
-            self.buf = ''
-            res[1] = buf
-            return unpack(res)
+            s = sub(buf, 1, n)
+            return s, err
         end
     end
 end
@@ -135,9 +120,8 @@ end
 --- scan
 --- @param delim string
 --- @param is_pattern boolean
---- @return string s
---- @return string err
---- @return ...
+--- @return string? s
+--- @return any? err
 function Reader:scan(delim, is_pattern)
     if not is_string(delim) then
         error('delim must be string', 2)
@@ -149,16 +133,14 @@ function Reader:scan(delim, is_pattern)
     local plain = is_pattern ~= true
     local str = ''
     local pos = 1
-    while 1 do
-        local nres, res = varg2list(self:read(bufsize))
-        local s = res[1]
+    while true do
+        local s, err = self:read(bufsize)
 
-        if nres == 0 or #s == 0 then
-            self:prepend(str)
-            res[1] = nil
-            return unpack(res)
-        end
         str = str .. s
+        if #s == 0 or err then
+            self:prepend(str)
+            return nil, err
+        end
 
         local head, tail = find(str, delim, pos, plain)
         if head then
@@ -172,27 +154,22 @@ end
 --- readin
 --- @param n integer
 --- @return string s
---- @return string err
---- @return ...
+--- @return any? err
 function Reader:readin(n)
     if not is_uint(n) or n == 0 then
         error('n must be uint greater than 0', 2)
     end
 
-    local nres, res = varg2list(self.src:read(n))
-    local s = res[1]
-    if nres == 0 or not s then
-        res[1] = ''
+    local s, err = self.reader:read(n)
+    if s == nil then
+        return '', err
     elseif not is_string(s) then
-        res[1] = ''
-        res[2] = 'src.read method returned a non-string value'
+        error('reader:read() returned a non-string value')
     elseif #s > n then
-        res[1] = ''
-        res[2] = format(
-                     'src.read method returned a string larger than %d bytes', n)
+        error(format('reader:read() returned a string larger than %d bytes', n))
     end
 
-    return unpack(res)
+    return s, err
 end
 
 return {

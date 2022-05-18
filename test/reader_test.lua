@@ -22,17 +22,17 @@ function testcase.new()
         local err = assert.throws(function()
             reader.new(v)
         end)
-        assert.match(err, 'src must be table or userdata')
+        assert.match(err, 'reader must be table or userdata')
     end
     local err = assert.throws(function()
         reader.new()
     end)
-    assert.match(err, 'src must be table or userdata')
+    assert.match(err, 'reader must be table or userdata')
 
     err = assert.throws(function()
         reader.new({})
     end)
-    assert.match(err, 'src must have a read method')
+    assert.match(err, 'reader.read must be function')
 end
 
 function testcase.setbufsize()
@@ -144,35 +144,31 @@ function testcase.read()
     -- test that return error from reader
     r = reader.new({
         read = function()
-            return nil, 'read-error', false
+            return nil, 'read-error'
         end,
     })
-    local extra
-    data, err, extra = r:read(6)
+    data, err = r:read(6)
     assert.equal(data, '')
     assert.match(err, 'read-error')
-    assert.is_false(extra)
 
-    -- test that return an error if src return invalid data
+    -- test that throws an error if src return invalid data
     r = reader.new({
         read = function()
             return {}
         end,
     })
-    data, err = r:read(1)
-    assert.equal(data, '')
-    assert.match(err, 'method returned a non-string value')
+    err = assert.throws(r.read, r, 1)
+    assert.match(err, 'returned a non-string value')
 
-    -- test that return an error if src return a string larger than n
+    -- test that throws an error if src return a string larger than n
     r = reader.new({
         read = function()
             return 'hello world'
         end,
     })
     r:setbufsize(5)
-    data, err = r:read(1)
-    assert.equal(data, '')
-    assert.match(err, 'method returned .+ larger than 5 bytes', false)
+    err = assert.throws(r.read, r, 1)
+    assert.match(err, 'returned a string larger than 5 bytes')
 
     -- test that throws an error if n is not greater than 0
     err = assert.throws(r.readin, r, 0)
@@ -241,37 +237,32 @@ function testcase.readin()
     })
 
     -- test that read from reader
-    local data, err, timeout = r:readin(5)
+    local data, err = r:readin(5)
     assert.equal(data, 'data ')
     assert.is_nil(err)
-    assert.is_nil(timeout)
 
     -- test that abort if reader return empty-string
-    data, err, timeout = r:readin(100)
+    data, err = r:readin(100)
     assert.equal(data, 'from src.read')
     assert.is_nil(err)
-    assert.is_nil(timeout)
 
     -- test that abort if reader return nil
     r = reader.new({
         read = function()
         end,
     })
-    data, err, timeout = r:readin(5)
+    data, err = r:readin(5)
     assert.equal(data, '')
-    assert.is_nil(timeout)
     assert.is_nil(err)
 
-    -- test that return error if reader return a non-string value
+    -- test that throws an error if reader return a non-string value
     r = reader.new({
         read = function()
             return true
         end,
     })
-    data, err, timeout = r:readin(5)
-    assert.equal(data, '')
+    err = assert.throws(r.readin, r, 5)
     assert.match(err, 'returned a non-string value')
-    assert.is_nil(timeout)
 
     -- test that return error if reader returned a string is larger than n bytes
     r = reader.new({
@@ -279,10 +270,8 @@ function testcase.readin()
             return string.rep('a', n + 1)
         end,
     })
-    data, err, timeout = r:readin(5)
-    assert.equal(data, '')
-    assert.match(err, 'string larger than 5 bytes')
-    assert.is_nil(timeout)
+    err = assert.throws(r.readin, r, 5)
+    assert.match(err, 'returned a string larger than 5 bytes')
 
     -- test that throws an error if n is not greater than 0
     err = assert.throws(r.readin, r, 0)
