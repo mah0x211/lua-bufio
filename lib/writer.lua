@@ -21,10 +21,8 @@
 --
 --- assign to local
 local format = string.format
-local select = select
 local sub = string.sub
 local remove = table.remove
-local unpack = unpack or table.unpack
 local isa = require('isa')
 local is_string = isa.string
 local is_table = isa.table
@@ -34,18 +32,8 @@ local is_function = isa.Function
 --- constants
 local MAX_BUFSIZE = 1024 * 4
 
---- varg2list
---- @varg ...
---- @return integer n number of arguments
---- @return table<integer, any> list
-local function varg2list(...)
-    return select('#', ...), {
-        ...,
-    }
-end
-
 --- @class bufio.writer
---- @field dst table|userdata
+--- @field writer table|userdata
 --- @field maxbufsize integer
 --- @field buf string[]
 --- @field bufsize integer
@@ -53,18 +41,18 @@ end
 local Writer = {}
 
 --- init
---- @param dst table|userdata
+--- @param writer table|userdata
 --- @return bufio.writer
 --- @return string? err
-function Writer:init(dst)
-    if not is_table(dst) and not is_userdata(dst) then
-        error('dst must be table or userdata', 2)
-    elseif not is_function(dst.write) then
-        error('dst must have a write method', 2)
+function Writer:init(writer)
+    if not is_table(writer) and not is_userdata(writer) then
+        error('writer must be table or userdata', 2)
+    elseif not is_function(writer.write) then
+        error('writer.write must be function', 2)
     end
 
     self.maxbufsize = MAX_BUFSIZE
-    self.dst = dst
+    self.writer = writer
     self.buf = {}
     self.bufsize = 0
     self.nflush = 0
@@ -101,32 +89,23 @@ function Writer:flushed()
 end
 
 --- flush
---- @return integer len
---- @return string err
---- @return ...
+--- @return integer n
+--- @return any err
 function Writer:flush()
     local buf = self.buf
-    local nflush
+    local nflush = 0
 
     while #buf > 0 do
         local s = buf[1]
         local nwrite = #s
-        local nres, res = varg2list(self:writeout(s))
-        local n = res[1]
+        local n, err = self:writeout(s)
 
-        if nres == 0 or not n then
-            self.nflush = nflush or 0
-            res[1] = nflush
-            return unpack(res)
-        end
-
-        nflush = (nflush or 0) + n
-        if n < nwrite then
+        nflush = nflush + n
+        if n < nwrite or err then
             buf[1] = sub(s, n + 1)
             self.bufsize = self.bufsize - nflush
             self.nflush = nflush
-            res[1] = nflush
-            return unpack(res)
+            return nflush, err
         end
 
         remove(buf, 1)
@@ -142,9 +121,8 @@ end
 
 --- write
 --- @param s string
---- @return integer len
---- @return string err
---- @return ...
+--- @return integer n
+--- @return any err
 function Writer:write(s)
     if not is_string(s) then
         error('s must be string', 2)
@@ -160,14 +138,14 @@ function Writer:write(s)
     if self.bufsize > 0 and
         (avail <= 0 or nwrite > maxbufsize or avail - nwrite < 0) then
         -- buffer space not available
-        local nres, res = varg2list(self:flush())
-        if nres == 0 or nres > 1 then
-            return unpack(res)
+        local n, err = self:flush()
+        if err then
+            return n, err
         end
     end
 
     -- NOTE: concatenate a data with the last data to reduce the number of
-    -- dst.write() operations.
+    -- writer.write() operations.
     local buf = self.buf
     local tail = buf[#buf]
     if not tail or nwrite > MAX_BUFSIZE or #tail + nwrite >= MAX_BUFSIZE then
@@ -186,44 +164,41 @@ end
 
 --- writeout
 --- @param s string
---- @return integer len
---- @return string err
---- @return ...
+--- @return integer n
+--- @return any err
 function Writer:writeout(s)
-    local dst = self.dst
-    local len = #s
-    local nwrite
-
-    while 1 do
-        local nres, res = varg2list(dst:write(s))
-        local n = res[1]
-
-        if nres == 0 or not n then
-            res[1] = nwrite
-            return unpack(res)
-        elseif not is_uint(n) then
-            return nwrite,
-                   'dst.write method returned an invalid number of bytes written'
-        elseif n == 0 then
-            res[1] = nwrite
-            return unpack(res)
-        elseif n == #s then
-            res[1] = (nwrite or 0) + n
-            return unpack(res)
-        elseif n < #s then
-            nwrite = (nwrite or 0) + n
-            if nres > 1 then
-                res[1] = nwrite
-                return unpack(res)
-            end
-            s = sub(s, n + 1)
-        else
-            return nwrite,
-                   format(
-                       'dst.write method returned a number of bytes written greater than %d',
-                       len)
-        end
+    if not is_string(s) then
+        error('s must be string', 2)
     end
+
+    local writer = self.writer
+    local nwrite = 0
+    local len = #s
+
+    while len > 0 do
+        local n, err = writer:write(s)
+
+        if n == nil then
+            return nwrite, err
+        elseif n < 0 then
+            error(format('writer:write() returned %d less than 0', n))
+        elseif n > len then
+            error(format('writer:write() returned %d greater than data size %d',
+                         n, len))
+        end
+
+        nwrite = nwrite + n
+        if n == len or err then
+            -- done or got error
+            return nwrite, err
+        elseif n == 0 then
+            error('writer:write() returned 0 without error')
+        end
+        s = sub(s, n + 1)
+        len = #s
+    end
+
+    return nwrite
 end
 
 return {

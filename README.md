@@ -248,8 +248,18 @@ local writer = require('bufio.writer')
 local f = assert(io.tmpfile())
 local w = writer.new(f)
 
--- create with a table that contains a read function
+-- create with a table that contains a write function
 w = writer.new({
+    -- a write must be the following function:
+    --
+    --   n:nil|uint, err:any = write(self, s:string)
+    --
+    -- the caller throws an error in the following cases:
+    --
+    --   * it returned n less than 0.
+    --   * it returned n greater than #s.
+    --   * it returned 0 without error when #s > 0.
+    --
     write = function(_, s)
         return #s, 'error'
     end,
@@ -347,7 +357,7 @@ returns a size of the string flushed to `dst`.
 - `n:integer`: size of flushed string.
 
 
-## len, err, ... = Writer:flush()
+## len, err = Writer:flush()
 
 flush the buffered strings to `dst`.
 
@@ -377,11 +387,10 @@ print(dst.data) -- 'hello'
 **Returns**
 
 - `len:integer`: number of bytes flushed.
-- `err:string`: a error string or the value returned from `dst.write` method.
-- `...:any`: the value returned from `dst.write` method.
+- `err:any`: an error value returned from `dst.write` method.
 
 
-## len, err, ... = Writer:write( s )
+## len, err = Writer:write( s )
 
 write a `s` to the buffer. when the buffer is full, the bufferred strings is automatically flushed to `dst`.
 
@@ -419,8 +428,7 @@ print(dump(dst.data))
 **Returns**
 
 - `len:integer`: number of bytes written.
-- `err:string`: a error string or the value returned from `dst.write` method.
-- `...:any`: the value returned from `dst.write` method.
+- `err:any`: an error value returned from `dst.write` method.
 
 
 ## len, err, ... = Writer:writeout( s )
@@ -456,5 +464,4 @@ print(dump(dst.data))
 **Returns**
 
 - `len:integer`: number of bytes written.
-- `err:string`: a error string or the value returned from `dst.write` method.
-- `...:any`: the value returned from `dst.write` method.
+- `err:any`: an error value returned from `dst.write` method.
