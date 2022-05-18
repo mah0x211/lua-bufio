@@ -30,6 +30,15 @@ local r = reader.new(f)
 
 -- create with a table that contains a read function
 r = reader.new({
+    -- a read must be the following function:
+    --
+    --   s:nil|string, err:any = read(self, n:uint)
+    --
+    -- the caller throws an error in the following cases:
+    --
+    --   * it returned non-nil s is not string.
+    --   * it returned s length greater than n.
+    --
     read = function(_, n)
         return 'hello', 'error'
     end
@@ -123,7 +132,7 @@ print(r:read(20)) -- hello world
 - `n:integer`: number of bytes (default: `4096`).
 
 
-## s, err, ... = Reader:read( n )
+## s, err = Reader:read( n )
 
 reads up to `n` bytes of a string from the `src`.
 
@@ -151,11 +160,10 @@ print(r:read(10)) -- lo
 **Returns**
 
 - `s:string`: a string.
-- `err:string`: a error string or the value returned from `src`.
-- `...:any`: the value returned from `src`.
+- `err:any`: a error value returned from `src`.
 
 
-## s, err, ... = Reader:scan( delim [, is_pattern] )
+## s, err = Reader:scan( delim [, is_pattern] )
 
 reads until the first occurrence of delimiter `delim` in the input from the `src`.
 
@@ -197,11 +205,10 @@ print(r:read(10)) -- bar
 **Returns**
 
 - `s:string`: a string.
-- `err:string`: a error string or the value returned from `src`.
-- `...:any`: the value returned from `src`.
+- `err:any`: a error value returned from `src`.
 
 
-## s, err, ... = Reader:readin( n )
+## s, err = Reader:readin( n )
 
 reads up to `n` bytes of a string from the `src` directly.
 
@@ -228,8 +235,7 @@ print(r:readin(10)) -- lo
 **Returns**
 
 - `s:string`: a string.
-- `err:string`: a error string or the value returned from `src`.
-- `...:any`: the value returned from `src`.
+- `err:any`: a error value returned from `src`.
 
 
 ***
