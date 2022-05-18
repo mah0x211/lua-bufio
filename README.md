@@ -437,7 +437,7 @@ print(dump(dst.data))
 - `err:any`: an error value returned from `dst.write` method.
 
 
-## len, err, ... = Writer:writeout( s )
+## len, err = Writer:writeout( s )
 
 write a `s` directly to the `dst`.
 
