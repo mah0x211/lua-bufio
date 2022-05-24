@@ -67,33 +67,60 @@ function testcase.write()
 
     -- test that write data to buffer
     w:setbufsize(10)
-    local len, err, timeout = w:write('hello')
+    local len, err = w:write('hello')
     assert.equal(len, 5)
     assert.is_nil(err)
-    assert.is_nil(timeout)
     assert.equal(w.buf, {
         'hello',
     })
     assert.equal(ncall, 0)
     assert.equal(msg, '')
 
-    -- test that flush buffer when buffer size reaches a maxbufsize
-    msg = ''
-    len, err, timeout = w:write('world')
-    assert.equal(len, 10)
+    len, err = w:write(' ')
+    assert.equal(len, 1)
     assert.is_nil(err)
-    assert.is_nil(timeout)
-    assert.equal(w.buf, {})
+    assert.equal(w.buf, {
+        'hello ',
+    })
+    assert.equal(ncall, 0)
+    assert.equal(msg, '')
+
+    -- test that flush buffer if buffer size will be reaching the maxbufsize
+    msg = ''
+    len, err = w:write('world')
+    assert.equal(len, 5)
+    assert.is_nil(err)
+    assert.equal(w.buf, {
+        'world',
+    })
     assert.equal(ncall, 1)
-    assert.equal(msg, 'helloworld')
+    assert.equal(msg, 'hello ')
+
+    -- test that write directly to dst if s length is greater than maxbufsize
+    ncall = 0
+    msg = ''
+    len, err = w:write('! ')
+    assert.equal(len, 2)
+    assert.is_nil(err)
+    assert.equal(w.buf, {
+        'world! ',
+    })
+    assert.equal(ncall, 0)
+    assert.equal(msg, '')
+
+    len, err = w:write('foobarbazqux')
+    assert.equal(len, 12)
+    assert.is_nil(err)
+    assert.empty(w.buf)
+    assert.equal(ncall, 2)
+    assert.equal(msg, 'world! foobarbazqux')
 
     -- test that write empty data
     ncall = 0
     msg = ''
-    len, err, timeout = w:write('')
+    len, err = w:write('')
     assert.equal(len, 0)
     assert.is_nil(err)
-    assert.is_nil(timeout)
     assert.equal(w.buf, {})
     assert.equal(ncall, 0)
     assert.equal(msg, '')
@@ -114,14 +141,6 @@ function testcase.write()
     assert.equal(err, 'write-error')
     assert.equal(w.buf, {
         'bar',
-    })
-
-    w.buf = {}
-    len, err = w:write('foo')
-    assert.equal(len, 0)
-    assert.equal(err, 'write-error')
-    assert.equal(w.buf, {
-        'foo',
     })
 
     -- test that throws an error with invalid argument

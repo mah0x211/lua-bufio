@@ -133,15 +133,18 @@ function Writer:write(s)
         return 0
     end
 
-    local maxbufsize = self.maxbufsize
     local avail = self:available()
-    if self.bufsize > 0 and
-        (avail <= 0 or nwrite > maxbufsize or avail - nwrite < 0) then
+    if avail <= 0 or avail < nwrite then
         -- buffer space not available
-        local n, err = self:flush()
+        local _, err = self:flush()
         if err then
-            return n, err
+            return 0, err
         end
+    end
+
+    if nwrite > self.maxbufsize then
+        -- not enough buffer space
+        return self:writeout(s)
     end
 
     -- NOTE: concatenate a data with the last data to reduce the number of
@@ -154,10 +157,6 @@ function Writer:write(s)
         buf[#buf] = tail .. s
     end
     self.bufsize = self.bufsize + nwrite
-
-    if self.bufsize >= maxbufsize then
-        return self:flush()
-    end
 
     return nwrite
 end

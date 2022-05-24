@@ -37,7 +37,7 @@ r = reader.new({
     -- the caller throws an error in the following cases:
     --
     --   * it returned non-nil s is not string.
-    --   * it returned s length greater than n.
+    --   * it returned s length is greater than n.
     --
     read = function(_, n)
         return 'hello', 'error'
@@ -364,7 +364,7 @@ returns a size of the string flushed to `dst`.
 - `n:integer`: size of flushed string.
 
 
-## len, err = Writer:flush()
+## n, err = Writer:flush()
 
 flush the buffered strings to `dst`.
 
@@ -393,13 +393,14 @@ print(dst.data) -- 'hello'
 
 **Returns**
 
-- `len:integer`: number of bytes flushed.
-- `err:any`: an error value returned from `dst.write` method.
+- `n:integer`: number of bytes flushed.
+- `err:any`: an error value returned from `writeout` method.
 
 
-## len, err = Writer:write( s )
+## n, err = Writer:write( s )
 
-write a `s` to the buffer. when the buffer is full, the bufferred strings is automatically flushed to `dst`.
+write a `s` to the buffer.  
+if the buffer space is not enough, the bufferred strings is automatically flushed to `dst`.
 
 ```lua
 local dump = require('dump')
@@ -434,11 +435,11 @@ print(dump(dst.data))
 
 **Returns**
 
-- `len:integer`: number of bytes written.
-- `err:any`: an error value returned from `dst.write` method.
+- `n:integer`: number of bytes written.
+- `err:any`: an error value returned from `flush` method.
 
 
-## len, err = Writer:writeout( s )
+## n, err = Writer:writeout( s )
 
 write a `s` directly to the `dst`.
 
@@ -470,5 +471,5 @@ print(dump(dst.data))
 
 **Returns**
 
-- `len:integer`: number of bytes written.
+- `n:integer`: number of bytes written.
 - `err:any`: an error value returned from `dst.write` method.
