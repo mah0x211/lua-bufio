@@ -67,33 +67,60 @@ function testcase.write()
 
     -- test that write data to buffer
     w:setbufsize(10)
-    local len, err, timeout = w:write('hello')
+    local len, err = w:write('hello')
     assert.equal(len, 5)
     assert.is_nil(err)
-    assert.is_nil(timeout)
     assert.equal(w.buf, {
         'hello',
     })
     assert.equal(ncall, 0)
     assert.equal(msg, '')
 
-    -- test that flush buffer when buffer size reaches a maxbufsize
-    msg = ''
-    len, err, timeout = w:write('world')
-    assert.equal(len, 10)
+    len, err = w:write(' ')
+    assert.equal(len, 1)
     assert.is_nil(err)
-    assert.is_nil(timeout)
-    assert.equal(w.buf, {})
+    assert.equal(w.buf, {
+        'hello ',
+    })
+    assert.equal(ncall, 0)
+    assert.equal(msg, '')
+
+    -- test that flush buffer if buffer size will be reaching the maxbufsize
+    msg = ''
+    len, err = w:write('world')
+    assert.equal(len, 5)
+    assert.is_nil(err)
+    assert.equal(w.buf, {
+        'world',
+    })
     assert.equal(ncall, 1)
-    assert.equal(msg, 'helloworld')
+    assert.equal(msg, 'hello ')
+
+    -- test that write directly to dst if s length is greater than maxbufsize
+    ncall = 0
+    msg = ''
+    len, err = w:write('! ')
+    assert.equal(len, 2)
+    assert.is_nil(err)
+    assert.equal(w.buf, {
+        'world! ',
+    })
+    assert.equal(ncall, 0)
+    assert.equal(msg, '')
+
+    len, err = w:write('foobarbazqux')
+    assert.equal(len, 12)
+    assert.is_nil(err)
+    assert.empty(w.buf)
+    assert.equal(ncall, 2)
+    assert.equal(msg, 'world! foobarbazqux')
 
     -- test that write empty data
     ncall = 0
     msg = ''
-    len, err, timeout = w:write('')
+    len, err = w:write('')
     assert.equal(len, 0)
     assert.is_nil(err)
-    assert.is_nil(timeout)
     assert.equal(w.buf, {})
     assert.equal(ncall, 0)
     assert.equal(msg, '')
@@ -114,14 +141,6 @@ function testcase.write()
     assert.equal(err, 'write-error')
     assert.equal(w.buf, {
         'bar',
-    })
-
-    w.buf = {}
-    len, err = w:write('foo')
-    assert.equal(len, 0)
-    assert.equal(err, 'write-error')
-    assert.equal(w.buf, {
-        'foo',
     })
 
     -- test that throws an error with invalid argument
@@ -171,10 +190,6 @@ function testcase.flush()
     assert.equal(msg, 'hello world!')
 
     -- test that return 0 if no-buffers
-    w = writer.new({
-        write = function()
-        end,
-    })
     len, err = w:flush()
     assert.equal(len, 0)
     assert.is_nil(err)
@@ -182,6 +197,7 @@ function testcase.flush()
     -- test that abort if writer returns no value
     w = writer.new({
         write = function()
+            return nil, 'abort'
         end,
     })
     w.buf = {
@@ -189,7 +205,7 @@ function testcase.flush()
     }
     len, err = w:flush()
     assert.equal(len, 0)
-    assert.is_nil(err)
+    assert.equal(err, 'abort')
     assert.equal(w.buf, {
         'hello',
     })
@@ -252,15 +268,24 @@ function testcase.writeout()
     })
 
     -- test that write directly to writer
-    local len, err, timeout = w:writeout('foo')
+    local len, err = w:writeout('foo')
     assert.equal(len, 3)
     assert.equal(w:flushed(), 0)
     assert.is_nil(err)
-    assert.is_nil(timeout)
     assert.equal(w.buf, {})
     assert.equal(w:size(), 0)
     assert.equal(msg, 'foo')
     assert.equal(ncall, 1)
+
+    -- test that abort if writer return an error
+    w = writer.new({
+        write = function(_, data)
+            return #data, 'error'
+        end,
+    })
+    len, err = w:writeout('foo')
+    assert.equal(len, 3)
+    assert.equal(err, 'error')
 
     -- test that write empty-string
     ncall = 0
@@ -282,7 +307,7 @@ function testcase.writeout()
     err = assert.throws(w.writeout, w, 'foo')
     assert.match(err, 'returned -1 less than 0')
 
-    -- test that abort if writer returns 0
+    -- test that throws an error if writer returns 0 without error
     w = writer.new({
         write = function()
             return 0
@@ -291,14 +316,13 @@ function testcase.writeout()
     err = assert.throws(w.writeout, w, 'foo')
     assert.match(err, 'returned 0 without error')
 
-    -- test that abort if writer return an error
+    -- test that throws an error if writer returns nil without error
     w = writer.new({
-        write = function(_, data)
-            return #data, 'error'
+        write = function()
         end,
     })
-    len, err = w:writeout('foo')
-    assert.equal(len, 3)
-    assert.equal(err, 'error')
+    err = assert.throws(w.writeout, w, 'foo')
+    assert.match(err, 'returned nil without error')
+
 end
 
