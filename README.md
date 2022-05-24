@@ -265,6 +265,7 @@ w = writer.new({
     --   * it returned n less than 0.
     --   * it returned n greater than #s.
     --   * it returned 0 without error when #s > 0.
+    --   * it returned nil without error.
     --
     write = function(_, s)
         return #s, 'error'

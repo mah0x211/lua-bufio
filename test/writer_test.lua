@@ -171,10 +171,6 @@ function testcase.flush()
     assert.equal(msg, 'hello world!')
 
     -- test that return 0 if no-buffers
-    w = writer.new({
-        write = function()
-        end,
-    })
     len, err = w:flush()
     assert.equal(len, 0)
     assert.is_nil(err)
@@ -182,6 +178,7 @@ function testcase.flush()
     -- test that abort if writer returns no value
     w = writer.new({
         write = function()
+            return nil, 'abort'
         end,
     })
     w.buf = {
@@ -189,7 +186,7 @@ function testcase.flush()
     }
     len, err = w:flush()
     assert.equal(len, 0)
-    assert.is_nil(err)
+    assert.equal(err, 'abort')
     assert.equal(w.buf, {
         'hello',
     })
@@ -252,15 +249,24 @@ function testcase.writeout()
     })
 
     -- test that write directly to writer
-    local len, err, timeout = w:writeout('foo')
+    local len, err = w:writeout('foo')
     assert.equal(len, 3)
     assert.equal(w:flushed(), 0)
     assert.is_nil(err)
-    assert.is_nil(timeout)
     assert.equal(w.buf, {})
     assert.equal(w:size(), 0)
     assert.equal(msg, 'foo')
     assert.equal(ncall, 1)
+
+    -- test that abort if writer return an error
+    w = writer.new({
+        write = function(_, data)
+            return #data, 'error'
+        end,
+    })
+    len, err = w:writeout('foo')
+    assert.equal(len, 3)
+    assert.equal(err, 'error')
 
     -- test that write empty-string
     ncall = 0
@@ -282,7 +288,7 @@ function testcase.writeout()
     err = assert.throws(w.writeout, w, 'foo')
     assert.match(err, 'returned -1 less than 0')
 
-    -- test that abort if writer returns 0
+    -- test that throws an error if writer returns 0 without error
     w = writer.new({
         write = function()
             return 0
@@ -291,14 +297,13 @@ function testcase.writeout()
     err = assert.throws(w.writeout, w, 'foo')
     assert.match(err, 'returned 0 without error')
 
-    -- test that abort if writer return an error
+    -- test that throws an error if writer returns nil without error
     w = writer.new({
-        write = function(_, data)
-            return #data, 'error'
+        write = function()
         end,
     })
-    len, err = w:writeout('foo')
-    assert.equal(len, 3)
-    assert.equal(err, 'error')
+    err = assert.throws(w.writeout, w, 'foo')
+    assert.match(err, 'returned nil without error')
+
 end
 

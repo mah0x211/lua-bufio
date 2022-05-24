@@ -179,6 +179,9 @@ function Writer:writeout(s)
         local n, err = writer:write(s)
 
         if n == nil then
+            if err == nil then
+                error('writer:write() returned nil without error')
+            end
             return nwrite, err
         elseif n < 0 then
             error(format('writer:write() returned %d less than 0', n))
