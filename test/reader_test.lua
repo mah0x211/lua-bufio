@@ -125,7 +125,7 @@ function testcase.read()
     data = assert(r:read(20))
     assert.equal(data, ' data')
 
-    -- test that read data larger than bufsize
+    -- test that read data only up to bufsize
     msg = 'hello world'
     r = reader.new({
         read = function(_, nread)
@@ -138,7 +138,7 @@ function testcase.read()
     })
     r:setbufsize(5)
     data = assert(r:read(20))
-    assert.equal(data, 'hello world')
+    assert.equal(data, 'hello')
     assert.equal(r.buf, '')
 
     -- test that return error from reader
