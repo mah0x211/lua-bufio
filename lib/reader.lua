@@ -98,23 +98,22 @@ function Reader:read(n)
         self.buf = sub(buf, n + 1)
         return sub(buf, 1, n)
     end
+    self.buf = ''
 
     -- read from reader
     local bufsize = self.bufsize > 0 and self.bufsize or DEFAULT_BUFSIZE
-    while true do
-        local s, err = self:readin(bufsize)
+    local s, err = self:readin(bufsize)
 
-        buf = buf .. s
-        if err or #s == 0 then
-            self.buf = ''
-            return buf, err
-        elseif #buf >= n then
-            -- cache an extra substring
-            self.buf = sub(buf, n + 1)
-            s = sub(buf, 1, n)
-            return s, err
-        end
+    buf = buf .. s
+    if err or #s == 0 then
+        return buf, err
+    elseif #buf >= n then
+        -- cache an extra substring
+        self.buf = sub(buf, n + 1)
+        s = sub(buf, 1, n)
+        return s
     end
+    return buf
 end
 
 --- scan
