@@ -1,5 +1,6 @@
 require('luacov')
 local testcase = require('testcase')
+local errno = require('errno')
 local reader = require('bufio.reader')
 
 function testcase.new()
@@ -187,6 +188,128 @@ function testcase.read()
     }) do
         err = assert.throws(function()
             r:read(v)
+        end)
+        assert.match(err, 'n must be uint')
+    end
+end
+
+function testcase.readfull()
+    local ncall = 0
+    local msg = 'data from src.read'
+    local r = reader.new({
+        read = function()
+            ncall = ncall + 1
+            local s = msg
+            msg = nil
+            return s
+        end,
+    })
+    r:prepend('foo bar baz qux')
+
+    -- test that read cached data
+    local data, err = r:readfull(5)
+    assert.equal(data, 'foo b')
+    assert.is_nil(err)
+
+    -- test that read all cached data
+    data = assert(r:readfull(10))
+    assert.equal(data, 'ar baz qux')
+
+    -- test that read data from src
+    local n = #msg
+    msg = msg .. '+extra data'
+    data = assert(r:readfull(n))
+    assert.equal(data, 'data from src.read')
+
+    -- test that cache extra data
+    data = assert(r:readfull(6))
+    assert.equal(data, '+extra')
+    assert.equal(ncall, 1)
+    assert.equal(r.buf, ' data')
+
+    -- test that read cached data
+    data = assert(r:readfull(20))
+    assert.equal(data, ' data')
+
+    -- test that read data larger than bufsize
+    msg = 'hello world'
+    r = reader.new({
+        read = function(_, nread)
+            if #msg > 0 then
+                local s = string.sub(msg, 1, nread)
+                msg = string.sub(msg, nread + 1)
+                return s
+            end
+        end,
+    })
+    r:setbufsize(5)
+    data = assert(r:readfull(20))
+    assert.equal(data, 'hello world')
+    assert.equal(r.buf, '')
+
+    -- test that return error if read data smaller than specified size
+    msg = 'hello world'
+    r = reader.new({
+        read = function(_, nread)
+            if #msg > 0 then
+                local s = string.sub(msg, 1, nread)
+                msg = string.sub(msg, nread + 1)
+                return s
+            end
+        end,
+    })
+    r:setbufsize(5)
+    data, err = assert(r:readfull(20))
+    assert.equal(data, 'hello world')
+    assert.equal(err.type, errno.ENODATA)
+    assert.equal(r.buf, '')
+
+    -- test that return error from reader
+    r = reader.new({
+        read = function()
+            return nil, 'read-error'
+        end,
+    })
+    data, err = r:readfull(6)
+    assert.equal(data, '')
+    assert.match(err, 'read-error')
+
+    -- test that throws an error if src return invalid data
+    r = reader.new({
+        read = function()
+            return {}
+        end,
+    })
+    err = assert.throws(r.read, r, 1)
+    assert.match(err, 'returned a non-string value')
+
+    -- test that throws an error if src return a string larger than n
+    r = reader.new({
+        read = function()
+            return 'hello world'
+        end,
+    })
+    r:setbufsize(5)
+    err = assert.throws(r.read, r, 1)
+    assert.match(err, 'returned a string larger than 5 bytes')
+
+    -- test that throws an error if n is not greater than 0
+    err = assert.throws(r.readin, r, 0)
+    assert.match(err, 'n must be uint greater than 0')
+
+    -- test that throws an error with invalid argument
+    for _, v in ipairs({
+        true,
+        1.1,
+        -1,
+        {},
+        function()
+        end,
+        coroutine.create(function()
+        end),
+    }) do
+        err = assert.throws(function()
+            r:readfull(v)
         end)
         assert.match(err, 'n must be uint')
     end

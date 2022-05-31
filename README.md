@@ -163,6 +163,35 @@ print(r:read(10)) -- lo
 - `err:any`: a error value returned from `src`.
 
 
+## s, err = Reader:readfull( n )
+
+reads exactly `n` bytes of a string from the `src`.
+
+```lua
+local reader = require('bufio.reader')
+
+local f = assert(io.tmpfile())
+f:write('hello')
+f:seek('set')
+local r = reader.new(f)
+
+-- reads exactly 4 bytes of a string
+print(r:readfull(4)) -- hell
+
+-- return a string with ernro.ENODATA error if reading fewer than 5 bytes
+print(r:readfull(5)) -- o ./example.lua:12: in main chunk: [ENODATA:96] No message available on STREAM
+```
+
+**Parameters**
+
+- `n:integer`: number of bytes to read.
+
+**Returns**
+
+- `s:string`: a string.
+- `err:any`: a error value returned from `src`, or error object of `errno.ENODATA` if reading fewer than `n` bytes.
+
+
 ## s, err = Reader:scan( delim [, is_pattern] )
 
 reads until the first occurrence of delimiter `delim` in the input from the `src`.

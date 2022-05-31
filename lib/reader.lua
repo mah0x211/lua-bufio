@@ -23,6 +23,7 @@
 local find = string.find
 local format = string.format
 local sub = string.sub
+local new_errno = require('errno').new
 local isa = require('isa')
 local is_boolean = isa.boolean
 local is_string = isa.string
@@ -114,6 +115,42 @@ function Reader:read(n)
         return s
     end
     return buf
+end
+
+--- readfull
+--- @param n integer
+--- @return string s
+--- @return any? err
+function Reader:readfull(n)
+    if not is_uint(n) or n == 0 then
+        error('n must be uint greater than 0', 2)
+    end
+
+    local buf = self.buf
+    if #buf >= n then
+        -- consume n-bytes of cached data
+        self.buf = sub(buf, n + 1)
+        return sub(buf, 1, n)
+    end
+    self.buf = ''
+
+    -- read from reader
+    local bufsize = self.bufsize > 0 and self.bufsize or DEFAULT_BUFSIZE
+    while true do
+        local s, err = self:readin(bufsize)
+
+        buf = buf .. s
+        if err then
+            return buf, err
+        elseif #s == 0 then
+            return buf, new_errno('ENODATA')
+        elseif #buf >= n then
+            -- cache an extra substring
+            self.buf = sub(buf, n + 1)
+            s = sub(buf, 1, n)
+            return s
+        end
+    end
 end
 
 --- scan
