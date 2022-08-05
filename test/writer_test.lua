@@ -14,6 +14,7 @@ function testcase.new()
     for _, v in ipairs({
         true,
         0,
+        {},
         function()
         end,
         coroutine.create(function()
@@ -22,17 +23,10 @@ function testcase.new()
         local err = assert.throws(function()
             writer.new(v)
         end)
-        assert.match(err, 'writer must be table or userdata')
+        assert.match(err, 'dst.write must be function')
     end
-    local err = assert.throws(function()
-        writer.new()
-    end)
-    assert.match(err, 'writer must be table or userdata')
-
-    err = assert.throws(function()
-        writer.new({})
-    end)
-    assert.match(err, 'writer.write must be function')
+    local err = assert.throws(writer.new)
+    assert.match(err, 'dst.write must be function')
 end
 
 function testcase.setbufsize()
@@ -268,10 +262,11 @@ function testcase.writeout()
     })
 
     -- test that write directly to writer
-    local len, err = w:writeout('foo')
+    local len, err, timeout = w:writeout('foo')
     assert.equal(len, 3)
     assert.equal(w:flushed(), 0)
     assert.is_nil(err)
+    assert.is_nil(timeout)
     assert.equal(w.buf, {})
     assert.equal(w:size(), 0)
     assert.equal(msg, 'foo')
@@ -286,6 +281,17 @@ function testcase.writeout()
     len, err = w:writeout('foo')
     assert.equal(len, 3)
     assert.equal(err, 'error')
+
+    -- test that abort if writer return a timeout
+    w = writer.new({
+        write = function(_, data)
+            return #data, nil, true
+        end,
+    })
+    len, err, timeout = w:writeout('foo')
+    assert.equal(len, 3)
+    assert.is_nil(err)
+    assert.is_true(timeout)
 
     -- test that write empty-string
     ncall = 0
@@ -314,7 +320,7 @@ function testcase.writeout()
         end,
     })
     err = assert.throws(w.writeout, w, 'foo')
-    assert.match(err, 'returned 0 without error')
+    assert.match(err, 'returned 0 with neither error nor timeout')
 
     -- test that throws an error if writer returns nil without error
     w = writer.new({

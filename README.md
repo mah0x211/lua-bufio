@@ -283,28 +283,28 @@ local writer = require('bufio.writer')
 local f = assert(io.tmpfile())
 local w = writer.new(f)
 
--- create with a table that contains a write function
+-- create with a table or userdata that contains a write function
 w = writer.new({
     -- a write must be the following function:
     --
-    --   n:nil|uint, err:any = write(self, s:string)
+    --   n:nil|uint, err:any, timeout:boolean = write(self, s:string)
     --
     -- the caller throws an error in the following cases:
     --
     --   * it returned n less than 0.
     --   * it returned n greater than #s.
-    --   * it returned 0 without error when #s > 0.
+    --   * it returned 0 with neither error nor timeout when #s > 0.
     --   * it returned nil without error.
     --
     write = function(_, s)
-        return #s, 'error'
+        return #s, 'error', false
     end,
 })
 ```
 
 **Parameters**
 
-- `src:table|userdata`: `table` or `userdata` with `write` method.
+- `dst:table|userdata`: object that has a `write` method.
 
 **Returns**
 
@@ -393,7 +393,7 @@ returns a size of the string flushed to `dst`.
 - `n:integer`: size of flushed string.
 
 
-## n, err = Writer:flush()
+## n, err, timeout = Writer:flush()
 
 flush the buffered strings to `dst`.
 
@@ -424,9 +424,10 @@ print(dst.data) -- 'hello'
 
 - `n:integer`: number of bytes flushed.
 - `err:any`: an error value returned from `writeout` method.
+- `err:timeout`: a timeout value returned from `writeout` method.
 
 
-## n, err = Writer:write( s )
+## n, err, timeout = Writer:write( s )
 
 write a `s` to the buffer.  
 if the buffer space is not enough, the bufferred strings is automatically flushed to `dst`.
@@ -466,9 +467,10 @@ print(dump(dst.data))
 
 - `n:integer`: number of bytes written.
 - `err:any`: an error value returned from `flush` method.
+- `timeout:boolean`: a timeout value returned from `flush` method.
 
 
-## n, err = Writer:writeout( s )
+## n, err, timeout = Writer:writeout( s )
 
 write a `s` directly to the `dst`.
 
@@ -502,3 +504,4 @@ print(dump(dst.data))
 
 - `n:integer`: number of bytes written.
 - `err:any`: an error value returned from `dst.write` method.
+- `timeout:boolean`: a timeout value returned from `dst.write` method.
