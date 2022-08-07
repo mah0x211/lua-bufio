@@ -15,6 +15,7 @@ function testcase.new()
     for _, v in ipairs({
         true,
         0,
+        {},
         function()
         end,
         coroutine.create(function()
@@ -23,17 +24,12 @@ function testcase.new()
         local err = assert.throws(function()
             reader.new(v)
         end)
-        assert.match(err, 'reader must be table or userdata')
+        assert.match(err, 'src.read must be function')
     end
     local err = assert.throws(function()
         reader.new()
     end)
-    assert.match(err, 'reader must be table or userdata')
-
-    err = assert.throws(function()
-        reader.new({})
-    end)
-    assert.match(err, 'reader.read must be function')
+    assert.match(err, 'src.read must be function')
 end
 
 function testcase.setbufsize()
@@ -149,8 +145,20 @@ function testcase.read()
         end,
     })
     data, err = r:read(6)
-    assert.equal(data, '')
+    assert.is_nil(data)
     assert.match(err, 'read-error')
+
+    -- test that return timeout from reader
+    r = reader.new({
+        read = function()
+            return nil, nil, true
+        end,
+    })
+    local timeout
+    data, err, timeout = r:read(6)
+    assert.is_nil(data)
+    assert.is_nil(err)
+    assert.is_true(timeout)
 
     -- test that throws an error if src return invalid data
     r = reader.new({
@@ -360,23 +368,26 @@ function testcase.readin()
     })
 
     -- test that read from reader
-    local data, err = r:readin(5)
+    local data, err, timeout = r:readin(5)
     assert.equal(data, 'data ')
     assert.is_nil(err)
+    assert.is_nil(timeout)
 
     -- test that abort if reader return empty-string
-    data, err = r:readin(100)
+    data, err, timeout = r:readin(100)
     assert.equal(data, 'from src.read')
     assert.is_nil(err)
+    assert.is_nil(timeout)
 
     -- test that abort if reader return nil
     r = reader.new({
         read = function()
         end,
     })
-    data, err = r:readin(5)
-    assert.equal(data, '')
+    data, err, timeout = r:readin(5)
+    assert.is_nil(data)
     assert.is_nil(err)
+    assert.is_nil(timeout)
 
     -- test that throws an error if reader return a non-string value
     r = reader.new({

@@ -32,12 +32,18 @@ local r = reader.new(f)
 r = reader.new({
     -- a read must be the following function:
     --
-    --   s:nil|string, err:any = read(self, n:uint)
+    --   s:nil|string, err:any, timeout:boolean = read(self, n:uint)
+    --
+    -- the returned s is treated as nil in the following cases:
+    -- 
+    --   * length of s is 0.
+    --   * either err or timeout evaluated as true in the conditional statement.
+    --     (same as `if err or timeout then ... end`)
     --
     -- the caller throws an error in the following cases:
     --
-    --   * it returned non-nil s is not string.
-    --   * it returned s length is greater than n.
+    --   * it returned non-nil s, but it is not string.
+    --   * it returned s that length greater than n.
     --
     read = function(_, n)
         return 'hello', 'error'
@@ -132,7 +138,7 @@ print(r:read(20)) -- hello world
 - `n:integer`: number of bytes (default: `4096`).
 
 
-## s, err = Reader:read( n )
+## s, err, timeout = Reader:read( n )
 
 reads up to `n` bytes of a string from the `src`.
 
@@ -160,10 +166,11 @@ print(r:read(10)) -- lo
 **Returns**
 
 - `s:string`: a string.
-- `err:any`: a error value returned from `src`.
+- `err:any`: a error value returned from `readin` method.
+- `timeout:boolean`: a timeout value returned from `readin` method.
 
 
-## s, err = Reader:readfull( n )
+## s, err, timeout = Reader:readfull( n )
 
 reads exactly `n` bytes of a string from the `src`.
 
@@ -189,10 +196,11 @@ print(r:readfull(5)) -- o ./example.lua:12: in main chunk: [ENODATA:96] No messa
 **Returns**
 
 - `s:string`: a string.
-- `err:any`: a error value returned from `src`, or error object of `errno.ENODATA` if reading fewer than `n` bytes.
+- `err:any`: a error value returned from `readin` method, or error object of `errno.ENODATA` if reading fewer than `n` bytes.
+- `timeout:boolean`: a timeout value returned from `readin` method.
 
 
-## s, err = Reader:scan( delim [, is_pattern] )
+## s, err, timeout = Reader:scan( delim [, is_pattern] )
 
 reads until the first occurrence of delimiter `delim` in the input from the `src`.
 
@@ -234,10 +242,11 @@ print(r:read(10)) -- bar
 **Returns**
 
 - `s:string`: a string.
-- `err:any`: a error value returned from `src`.
+- `err:any`: a error value returned from `readin` method.
+- `timeout:boolean`: a timeout value returned from `readin` method.
 
 
-## s, err = Reader:readin( n )
+## s, err, timeout = Reader:readin( n )
 
 reads up to `n` bytes of a string from the `src` directly.
 
@@ -264,7 +273,8 @@ print(r:readin(10)) -- lo
 **Returns**
 
 - `s:string`: a string.
-- `err:any`: a error value returned from `src`.
+- `err:any`: a error value returned from `src.read` method.
+- `timeout:boolean`: a timeout value returned from `src.read` method.
 
 
 ***
@@ -283,28 +293,28 @@ local writer = require('bufio.writer')
 local f = assert(io.tmpfile())
 local w = writer.new(f)
 
--- create with a table that contains a write function
+-- create with a table or userdata that contains a write function
 w = writer.new({
     -- a write must be the following function:
     --
-    --   n:nil|uint, err:any = write(self, s:string)
+    --   n:nil|uint, err:any, timeout:boolean = write(self, s:string)
     --
     -- the caller throws an error in the following cases:
     --
     --   * it returned n less than 0.
     --   * it returned n greater than #s.
-    --   * it returned 0 without error when #s > 0.
+    --   * it returned 0 with neither error nor timeout when #s > 0.
     --   * it returned nil without error.
     --
     write = function(_, s)
-        return #s, 'error'
+        return #s, 'error', false
     end,
 })
 ```
 
 **Parameters**
 
-- `src:table|userdata`: `table` or `userdata` with `write` method.
+- `dst:table|userdata`: object that has a `write` method.
 
 **Returns**
 
@@ -393,7 +403,7 @@ returns a size of the string flushed to `dst`.
 - `n:integer`: size of flushed string.
 
 
-## n, err = Writer:flush()
+## n, err, timeout = Writer:flush()
 
 flush the buffered strings to `dst`.
 
@@ -424,9 +434,10 @@ print(dst.data) -- 'hello'
 
 - `n:integer`: number of bytes flushed.
 - `err:any`: an error value returned from `writeout` method.
+- `err:timeout`: a timeout value returned from `writeout` method.
 
 
-## n, err = Writer:write( s )
+## n, err, timeout = Writer:write( s )
 
 write a `s` to the buffer.  
 if the buffer space is not enough, the bufferred strings is automatically flushed to `dst`.
@@ -466,9 +477,10 @@ print(dump(dst.data))
 
 - `n:integer`: number of bytes written.
 - `err:any`: an error value returned from `flush` method.
+- `timeout:boolean`: a timeout value returned from `flush` method.
 
 
-## n, err = Writer:writeout( s )
+## n, err, timeout = Writer:writeout( s )
 
 write a `s` directly to the `dst`.
 
@@ -502,3 +514,4 @@ print(dump(dst.data))
 
 - `n:integer`: number of bytes written.
 - `err:any`: an error value returned from `dst.write` method.
+- `timeout:boolean`: a timeout value returned from `dst.write` method.

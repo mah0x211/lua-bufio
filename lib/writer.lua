@@ -22,12 +22,11 @@
 --- assign to local
 local format = string.format
 local sub = string.sub
+local pcall = pcall
 local remove = table.remove
 local isa = require('isa')
 local is_string = isa.string
-local is_table = isa.table
 local is_uint = isa.uint
-local is_userdata = isa.userdata
 local is_function = isa.Function
 --- constants
 local MAX_BUFSIZE = 1024 * 4
@@ -41,18 +40,19 @@ local MAX_BUFSIZE = 1024 * 4
 local Writer = {}
 
 --- init
---- @param writer table|userdata
+--- @param dst table|userdata
 --- @return bufio.writer
 --- @return string? err
-function Writer:init(writer)
-    if not is_table(writer) and not is_userdata(writer) then
-        error('writer must be table or userdata', 2)
-    elseif not is_function(writer.write) then
-        error('writer.write must be function', 2)
+function Writer:init(dst)
+    local ok, res = pcall(function()
+        return is_function(dst.write)
+    end)
+    if not ok or not res then
+        error('dst.write must be function', 2)
     end
 
     self.maxbufsize = MAX_BUFSIZE
-    self.writer = writer
+    self.writer = dst
     self.buf = {}
     self.bufsize = 0
     self.nflush = 0
@@ -91,6 +91,7 @@ end
 --- flush
 --- @return integer n
 --- @return any err
+--- @return boolean|nil timeout
 function Writer:flush()
     local buf = self.buf
     local nflush = 0
@@ -98,14 +99,14 @@ function Writer:flush()
     while #buf > 0 do
         local s = buf[1]
         local nwrite = #s
-        local n, err = self:writeout(s)
+        local n, err, timeout = self:writeout(s)
 
         nflush = nflush + n
-        if n < nwrite or err then
+        if n < nwrite or err or timeout then
             buf[1] = sub(s, n + 1)
             self.bufsize = self.bufsize - nflush
             self.nflush = nflush
-            return nflush, err
+            return nflush, err, timeout
         end
 
         remove(buf, 1)
@@ -123,6 +124,7 @@ end
 --- @param s string
 --- @return integer n
 --- @return any err
+--- @return boolean|nil timeout
 function Writer:write(s)
     if not is_string(s) then
         error('s must be string', 2)
@@ -136,9 +138,9 @@ function Writer:write(s)
     local avail = self:available()
     if avail <= 0 or avail < nwrite then
         -- buffer space not available
-        local _, err = self:flush()
-        if err then
-            return 0, err
+        local _, err, timeout = self:flush()
+        if err or timeout then
+            return 0, err, timeout
         end
     end
 
@@ -165,6 +167,7 @@ end
 --- @param s string
 --- @return integer n
 --- @return any err
+--- @return boolean|nil timeout
 function Writer:writeout(s)
     if not is_string(s) then
         error('s must be string', 2)
@@ -175,7 +178,7 @@ function Writer:writeout(s)
     local len = #s
 
     while len > 0 do
-        local n, err = writer:write(s)
+        local n, err, timeout = writer:write(s)
 
         if n == nil then
             if err == nil then
@@ -190,11 +193,11 @@ function Writer:writeout(s)
         end
 
         nwrite = nwrite + n
-        if n == len or err then
+        if n == len or err or timeout then
             -- done or got error
-            return nwrite, err
+            return nwrite, err, timeout and true
         elseif n == 0 then
-            error('writer:write() returned 0 without error')
+            error('writer:write() returned 0 with neither error nor timeout')
         end
         s = sub(s, n + 1)
         len = #s
