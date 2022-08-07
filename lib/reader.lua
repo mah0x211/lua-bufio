@@ -23,13 +23,12 @@
 local find = string.find
 local format = string.format
 local sub = string.sub
+local pcall = pcall
 local new_errno = require('errno').new
 local isa = require('isa')
 local is_boolean = isa.boolean
 local is_string = isa.string
 local is_uint = isa.uint
-local is_table = isa.table
-local is_userdata = isa.userdata
 local is_function = isa.Function
 --- constants
 local DEFAULT_BUFSIZE = 1024 * 4
@@ -41,18 +40,19 @@ local DEFAULT_BUFSIZE = 1024 * 4
 local Reader = {}
 
 --- new
---- @param reader table|userdata
+--- @param src table|userdata
 --- @return bufio.reader
 --- @return string? err
-function Reader:init(reader)
-    if not is_table(reader) and not is_userdata(reader) then
-        error('reader must be table or userdata', 2)
-    elseif not is_function(reader.read) then
-        error('reader.read must be function', 2)
+function Reader:init(src)
+    local ok, res = pcall(function()
+        return is_function(src.read)
+    end)
+    if not ok or not res then
+        error('src.read must be function', 2)
     end
 
     self.bufsize = DEFAULT_BUFSIZE
-    self.reader = reader
+    self.reader = src
     self.buf = ''
     return self
 end
@@ -86,8 +86,9 @@ end
 
 --- read
 --- @param n integer
---- @return string s
---- @return any? err
+--- @return string|nil s
+--- @return any err
+--- @return boolean|nil timeout
 function Reader:read(n)
     if not is_uint(n) or n == 0 then
         error('n must be uint greater than 0', 2)
@@ -97,22 +98,23 @@ function Reader:read(n)
     if #buf >= n then
         -- consume n-bytes of cached data
         self.buf = sub(buf, n + 1)
-        return sub(buf, 1, n)
+        buf = sub(buf, 1, n)
+        return buf
     end
     self.buf = ''
 
     -- read from reader
     local bufsize = self.bufsize > 0 and self.bufsize or DEFAULT_BUFSIZE
-    local s, err = self:readin(bufsize)
+    local s, err, timeout = self:readin(bufsize)
+    if not s or err or timeout then
+        return #buf > 0 and buf or nil, err, timeout
+    end
 
     buf = buf .. s
-    if err or #s == 0 then
-        return buf, err
-    elseif #buf >= n then
+    if #buf >= n then
         -- cache an extra substring
         self.buf = sub(buf, n + 1)
-        s = sub(buf, 1, n)
-        return s
+        buf = sub(buf, 1, n)
     end
     return buf
 end
@@ -120,7 +122,8 @@ end
 --- readfull
 --- @param n integer
 --- @return string s
---- @return any? err
+--- @return any err
+--- @return boolean|nil timeout
 function Reader:readfull(n)
     if not is_uint(n) or n == 0 then
         error('n must be uint greater than 0', 2)
@@ -130,21 +133,23 @@ function Reader:readfull(n)
     if #buf >= n then
         -- consume n-bytes of cached data
         self.buf = sub(buf, n + 1)
-        return sub(buf, 1, n)
+        buf = sub(buf, 1, n)
+        return buf
     end
     self.buf = ''
 
     -- read from reader
     local bufsize = self.bufsize > 0 and self.bufsize or DEFAULT_BUFSIZE
     while true do
-        local s, err = self:readin(bufsize)
+        local s, err, timeout = self:readin(bufsize)
+        if err or timeout then
+            return buf, err, timeout
+        elseif not s then
+            return buf, new_errno('ENODATA')
+        end
 
         buf = buf .. s
-        if err then
-            return buf, err
-        elseif #s == 0 then
-            return buf, new_errno('ENODATA')
-        elseif #buf >= n then
+        if #buf >= n then
             -- cache an extra substring
             self.buf = sub(buf, n + 1)
             s = sub(buf, 1, n)
@@ -156,8 +161,9 @@ end
 --- scan
 --- @param delim string
 --- @param is_pattern boolean
---- @return string? s
---- @return any? err
+--- @return string|nil s
+--- @return any err
+--- @return boolean|nil timeout
 function Reader:scan(delim, is_pattern)
     if not is_string(delim) then
         error('delim must be string', 2)
@@ -170,18 +176,18 @@ function Reader:scan(delim, is_pattern)
     local str = ''
     local pos = 1
     while true do
-        local s, err = self:read(bufsize)
-
-        str = str .. s
-        if #s == 0 or err then
+        local s, err, timeout = self:read(bufsize)
+        if not s or err or timeout then
             self:prepend(str)
-            return nil, err
+            return nil, err, timeout
         end
 
+        str = str .. s
         local head, tail = find(str, delim, pos, plain)
         if head then
             self:prepend(sub(str, tail + 1))
-            return sub(str, 1, head - 1)
+            str = sub(str, 1, head - 1)
+            return str
         end
         pos = #str
     end
@@ -189,23 +195,26 @@ end
 
 --- readin
 --- @param n integer
---- @return string s
---- @return any? err
+--- @return string|nil s
+--- @return any err
+--- @return boolean|nil timeout
 function Reader:readin(n)
     if not is_uint(n) or n == 0 then
         error('n must be uint greater than 0', 2)
     end
 
-    local s, err = self.reader:read(n)
-    if s == nil then
-        return '', err
+    local s, err, timeout = self.reader:read(n)
+    if err or timeout then
+        return nil, err, timeout and true
+    elseif s == nil then
+        return nil
     elseif not is_string(s) then
         error('reader:read() returned a non-string value')
     elseif #s > n then
         error(format('reader:read() returned a string larger than %d bytes', n))
+    elseif #s > 0 then
+        return s
     end
-
-    return s, err
 end
 
 return {

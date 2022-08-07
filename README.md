@@ -32,12 +32,18 @@ local r = reader.new(f)
 r = reader.new({
     -- a read must be the following function:
     --
-    --   s:nil|string, err:any = read(self, n:uint)
+    --   s:nil|string, err:any, timeout:boolean = read(self, n:uint)
+    --
+    -- the returned s is treated as nil in the following cases:
+    -- 
+    --   * length of s is 0.
+    --   * either err or timeout evaluated as true in the conditional statement.
+    --     (same as `if err or timeout then ... end`)
     --
     -- the caller throws an error in the following cases:
     --
-    --   * it returned non-nil s is not string.
-    --   * it returned s length is greater than n.
+    --   * it returned non-nil s, but it is not string.
+    --   * it returned s that length greater than n.
     --
     read = function(_, n)
         return 'hello', 'error'
@@ -132,7 +138,7 @@ print(r:read(20)) -- hello world
 - `n:integer`: number of bytes (default: `4096`).
 
 
-## s, err = Reader:read( n )
+## s, err, timeout = Reader:read( n )
 
 reads up to `n` bytes of a string from the `src`.
 
@@ -160,10 +166,11 @@ print(r:read(10)) -- lo
 **Returns**
 
 - `s:string`: a string.
-- `err:any`: a error value returned from `src`.
+- `err:any`: a error value returned from `readin` method.
+- `timeout:boolean`: a timeout value returned from `readin` method.
 
 
-## s, err = Reader:readfull( n )
+## s, err, timeout = Reader:readfull( n )
 
 reads exactly `n` bytes of a string from the `src`.
 
@@ -189,10 +196,11 @@ print(r:readfull(5)) -- o ./example.lua:12: in main chunk: [ENODATA:96] No messa
 **Returns**
 
 - `s:string`: a string.
-- `err:any`: a error value returned from `src`, or error object of `errno.ENODATA` if reading fewer than `n` bytes.
+- `err:any`: a error value returned from `readin` method, or error object of `errno.ENODATA` if reading fewer than `n` bytes.
+- `timeout:boolean`: a timeout value returned from `readin` method.
 
 
-## s, err = Reader:scan( delim [, is_pattern] )
+## s, err, timeout = Reader:scan( delim [, is_pattern] )
 
 reads until the first occurrence of delimiter `delim` in the input from the `src`.
 
@@ -234,10 +242,11 @@ print(r:read(10)) -- bar
 **Returns**
 
 - `s:string`: a string.
-- `err:any`: a error value returned from `src`.
+- `err:any`: a error value returned from `readin` method.
+- `timeout:boolean`: a timeout value returned from `readin` method.
 
 
-## s, err = Reader:readin( n )
+## s, err, timeout = Reader:readin( n )
 
 reads up to `n` bytes of a string from the `src` directly.
 
@@ -264,7 +273,8 @@ print(r:readin(10)) -- lo
 **Returns**
 
 - `s:string`: a string.
-- `err:any`: a error value returned from `src`.
+- `err:any`: a error value returned from `src.read` method.
+- `timeout:boolean`: a timeout value returned from `src.read` method.
 
 
 ***
