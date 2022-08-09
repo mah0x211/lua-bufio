@@ -95,13 +95,18 @@ function Reader:read(n)
     end
 
     local buf = self.buf
-    if #buf >= n then
-        -- consume n-bytes of cached data
+    -- consume cached data
+    if #buf > 0 then
+        if #buf <= n then
+            self.buf = ''
+            return buf
+        end
+
+        -- consume n-bytes
         self.buf = sub(buf, n + 1)
         buf = sub(buf, 1, n)
         return buf
     end
-    self.buf = ''
 
     -- read from reader
     local bufsize = self.bufsize > 0 and self.bufsize or DEFAULT_BUFSIZE
