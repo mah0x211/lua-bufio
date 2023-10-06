@@ -297,14 +297,22 @@ local w = writer.new(f)
 w = writer.new({
     -- a write must be the following function:
     --
-    --   n:nil|uint, err:any, timeout:boolean = write(self, s:string)
+    --   n:uint?, err:any, timeout:any = write(self, s:string)
+    --
+    -- the caller stops writing in the following cases:
+    --
+    --   * it returned nil n.
+    --   * it returned non-nil err.
+    --      * n value is treated as nil.
+    --   * it returned non-nil timeout.
+    --      * flush, write and writeout methods returns the number of bytes 
+    --        written and timeout value.
     --
     -- the caller throws an error in the following cases:
     --
     --   * it returned n less than 0.
     --   * it returned n greater than #s.
-    --   * it returned 0 with neither error nor timeout when #s > 0.
-    --   * it returned nil without error.
+    --   * it returned 0 with not timeout when #s > 0.
     --
     write = function(_, s)
         return #s, 'error', false
@@ -434,6 +442,7 @@ print(dst.data) -- 'hello'
 
 - `n:integer`: number of bytes flushed.
 - `err:any`: an error value returned from `writeout` method.
+    - if `err` is not `nil`, `n` value is always `nil`.
 - `err:timeout`: a timeout value returned from `writeout` method.
 
 
@@ -477,6 +486,7 @@ print(dump(dst.data))
 
 - `n:integer`: number of bytes written.
 - `err:any`: an error value returned from `flush` method.
+    - if `err` is not `nil`, `n` value is always `nil`.
 - `timeout:boolean`: a timeout value returned from `flush` method.
 
 
@@ -512,6 +522,7 @@ print(dump(dst.data))
 
 **Returns**
 
-- `n:integer`: number of bytes written.
-- `err:any`: an error value returned from `dst.write` method.
+- `n:integer?`: number of bytes written.
+- `err:any`: an error value returned from `dst.write` method.  
+    - if `err` is not `nil`, `n` value is always `nil`.
 - `timeout:boolean`: a timeout value returned from `dst.write` method.

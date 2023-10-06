@@ -20,10 +20,10 @@
 -- THE SOFTWARE.
 --
 --- assign to local
-local format = string.format
 local sub = string.sub
 local pcall = pcall
 local remove = table.remove
+local fatalf = require('error').fatalf
 local isa = require('isa')
 local is_string = isa.string
 local is_uint = isa.uint
@@ -89,9 +89,9 @@ function Writer:flushed()
 end
 
 --- flush
---- @return integer n
+--- @return integer? n
 --- @return any err
---- @return boolean|nil timeout
+--- @return boolean? timeout
 function Writer:flush()
     local buf = self.buf
     local nflush = 0
@@ -99,14 +99,19 @@ function Writer:flush()
     while #buf > 0 do
         local s = buf[1]
         local nwrite = #s
-        local n, err, timeout = self:writeout(s)
+        local n, err = self:writeout(s)
+        if not n then
+            return nil, err
+        end
 
         nflush = nflush + n
-        if n < nwrite or err or timeout then
+        if n < nwrite then
             buf[1] = sub(s, n + 1)
             self.bufsize = self.bufsize - nflush
             self.nflush = nflush
-            return nflush, err, timeout
+            -- it is treated as a timeout if the number of bytes written is
+            -- less than #s.
+            return nflush, nil, true
         end
 
         remove(buf, 1)
@@ -122,12 +127,12 @@ end
 
 --- write
 --- @param s string
---- @return integer n
+--- @return integer? n
 --- @return any err
---- @return boolean|nil timeout
+--- @return boolean? timeout
 function Writer:write(s)
     if not is_string(s) then
-        error('s must be string', 2)
+        fatalf(2, 's must be string')
     end
 
     local nwrite = #s
@@ -138,9 +143,11 @@ function Writer:write(s)
     local avail = self:available()
     if avail <= 0 or avail < nwrite then
         -- buffer space not available
-        local _, err, timeout = self:flush()
-        if err or timeout then
-            return 0, err, timeout
+        local n, err, timeout = self:flush()
+        if not n then
+            return nil, err
+        elseif timeout then
+            return 0, nil, timeout
         end
     end
 
@@ -165,42 +172,45 @@ end
 
 --- writeout
 --- @param s string
---- @return integer n
+--- @return integer? n
 --- @return any err
---- @return boolean|nil timeout
+--- @return boolean? timeout
 function Writer:writeout(s)
     if not is_string(s) then
-        error('s must be string', 2)
+        fatalf(2, 's must be string')
+    end
+
+    local len = #s
+    if len == 0 then
+        return 0
     end
 
     local writer = self.writer
     local nwrite = 0
-    local len = #s
-
     while len > 0 do
         local n, err, timeout = writer:write(s)
 
-        if n == nil then
-            if err == nil then
-                error('writer:write() returned nil without error')
-            end
-            return nwrite, err
+        if n == nil or err then
+            -- connection closed by peer or got an error
+            return nil, err
         elseif n < 0 then
-            error(format('writer:write() returned %d less than 0', n))
+            fatalf('writer:write() returned %d less than 0', n)
         elseif n > len then
-            error(format('writer:write() returned %d greater than data size %d',
-                         n, len))
+            fatalf('writer:write() returned %d greater than data size %d', n,
+                   len)
         end
 
         nwrite = nwrite + n
-        if n == len or err or timeout then
-            -- done or got error
-            return nwrite, err, timeout and true
+        if timeout then
+            return nwrite, nil, true
+        elseif n == len then
+            -- done
+            return nwrite
         elseif n == 0 then
-            error('writer:write() returned 0 with neither error nor timeout')
+            fatalf('writer:write() returned 0 with not timeout')
         end
         s = sub(s, n + 1)
-        len = #s
+        len = len - n
     end
 
     return nwrite
