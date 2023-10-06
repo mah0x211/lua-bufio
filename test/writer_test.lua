@@ -249,7 +249,7 @@ function testcase.flush()
         'hello',
     }
     err = assert.throws(w.flush, w)
-    assert.match(err, 'attempt to compare table with number')
+    assert.match(err, 'returned non-number value')
 end
 
 function testcase.writeout()
