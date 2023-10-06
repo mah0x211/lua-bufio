@@ -23,11 +23,9 @@
 local sub = string.sub
 local pcall = pcall
 local remove = table.remove
+local type = type
 local fatalf = require('error').fatalf
-local isa = require('isa')
-local is_string = isa.string
-local is_uint = isa.uint
-local is_function = isa.Function
+local is_uint = require('isa').uint
 --- constants
 local MAX_BUFSIZE = 1024 * 4
 
@@ -45,7 +43,7 @@ local Writer = {}
 --- @return string? err
 function Writer:init(dst)
     local ok, res = pcall(function()
-        return is_function(dst.write)
+        return type(dst.write) == 'function'
     end)
     if not ok or not res then
         error('dst.write must be function', 2)
@@ -131,7 +129,7 @@ end
 --- @return any err
 --- @return boolean? timeout
 function Writer:write(s)
-    if not is_string(s) then
+    if type(s) ~= 'string' then
         fatalf(2, 's must be string')
     end
 
@@ -176,7 +174,7 @@ end
 --- @return any err
 --- @return boolean? timeout
 function Writer:writeout(s)
-    if not is_string(s) then
+    if type(s) ~= 'string' then
         fatalf(2, 's must be string')
     end
 

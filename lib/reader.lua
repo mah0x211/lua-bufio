@@ -21,15 +21,12 @@
 --
 --- assign to local
 local find = string.find
-local format = string.format
 local sub = string.sub
 local pcall = pcall
+local type = type
+local fatalf = require('error').fatalf
 local new_errno = require('errno').new
-local isa = require('isa')
-local is_boolean = isa.boolean
-local is_string = isa.string
-local is_uint = isa.uint
-local is_function = isa.Function
+local is_uint = require('isa').uint
 --- constants
 local DEFAULT_BUFSIZE = 1024 * 4
 
@@ -45,10 +42,10 @@ local Reader = {}
 --- @return string? err
 function Reader:init(src)
     local ok, res = pcall(function()
-        return is_function(src.read)
+        return type(src.read) == 'function'
     end)
     if not ok or not res then
-        error('src.read must be function', 2)
+        fatalf(2, 'src.read must be function')
     end
 
     self.bufsize = DEFAULT_BUFSIZE
@@ -65,7 +62,7 @@ function Reader:setbufsize(n)
     elseif is_uint(n) then
         self.bufsize = n
     else
-        error('n must be uint', 2)
+        fatalf(2, 'n must be uint')
     end
 end
 
@@ -78,20 +75,20 @@ end
 --- prepend a data to read buffer
 --- @param s string
 function Reader:prepend(s)
-    if not is_string(s) then
-        error('s must be string', 2)
+    if type(s) ~= 'string' then
+        fatalf(2, 's must be string')
     end
     self.buf = s .. self.buf
 end
 
 --- read
 --- @param n integer
---- @return string|nil s
+--- @return string? s
 --- @return any err
---- @return boolean|nil timeout
+--- @return boolean? timeout
 function Reader:read(n)
     if not is_uint(n) or n == 0 then
-        error('n must be uint greater than 0', 2)
+        fatalf(2, 'n must be uint greater than 0')
     end
 
     local buf = self.buf
@@ -128,10 +125,10 @@ end
 --- @param n integer
 --- @return string s
 --- @return any err
---- @return boolean|nil timeout
+--- @return boolean? timeout
 function Reader:readfull(n)
     if not is_uint(n) or n == 0 then
-        error('n must be uint greater than 0', 2)
+        fatalf(2, 'n must be uint greater than 0')
     end
 
     local buf = self.buf
@@ -166,14 +163,14 @@ end
 --- scan
 --- @param delim string
 --- @param is_pattern boolean
---- @return string|nil s
+--- @return string? s
 --- @return any err
---- @return boolean|nil timeout
+--- @return boolean? timeout
 function Reader:scan(delim, is_pattern)
-    if not is_string(delim) then
-        error('delim must be string', 2)
-    elseif is_pattern ~= nil and not is_boolean(is_pattern) then
-        error('is_pattern must be boolean', 2)
+    if type(delim) ~= 'string' then
+        fatalf(2, 'delim must be string')
+    elseif is_pattern ~= nil and type(is_pattern) ~= 'boolean' then
+        fatalf(2, 'is_pattern must be boolean')
     end
 
     local bufsize = self.bufsize > 0 and self.bufsize or DEFAULT_BUFSIZE
@@ -200,12 +197,12 @@ end
 
 --- readin
 --- @param n integer
---- @return string|nil s
+--- @return string? s
 --- @return any err
---- @return boolean|nil timeout
+--- @return boolean? timeout
 function Reader:readin(n)
     if not is_uint(n) or n == 0 then
-        error('n must be uint greater than 0', 2)
+        fatalf(2, 'n must be uint greater than 0')
     end
 
     local s, err, timeout = self.reader:read(n)
@@ -213,10 +210,10 @@ function Reader:readin(n)
         return nil, err, timeout and true
     elseif s == nil then
         return nil
-    elseif not is_string(s) then
-        error('reader:read() returned a non-string value')
+    elseif type(s) ~= 'string' then
+        fatalf('reader:read() returned a non-string value')
     elseif #s > n then
-        error(format('reader:read() returned a string larger than %d bytes', n))
+        fatalf('reader:read() returned a string larger than %d bytes', n)
     elseif #s > 0 then
         return s
     end
