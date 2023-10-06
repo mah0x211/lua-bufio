@@ -11,6 +11,7 @@ description = {
 }
 dependencies = {
     "lua >= 5.1",
+    "error >= 0.12.0",
     "errno >= 0.3.0",
     "isa >= 0.2",
     "metamodule >= 0.3",
@@ -20,5 +21,5 @@ build = {
     modules = {
         ["bufio.reader"] = "lib/reader.lua",
         ["bufio.writer"] = "lib/writer.lua",
-    }
+    },
 }

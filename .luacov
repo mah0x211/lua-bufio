@@ -1,6 +1,6 @@
 codefromstrings = false
 runreport = true
-deletestats = false
+deletestats = true
 modules = {
     ["bufio.reader"] = "lib/reader.lua",
     ["bufio.writer"] = "lib/writer.lua",

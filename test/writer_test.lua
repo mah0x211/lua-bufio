@@ -131,7 +131,7 @@ function testcase.write()
     w.bufsize = 3
     w:setbufsize(0)
     len, err = w:write('foo')
-    assert.equal(len, 0)
+    assert.is_nil(len)
     assert.equal(err, 'write-error')
     assert.equal(w.buf, {
         'bar',
@@ -198,7 +198,7 @@ function testcase.flush()
         'hello',
     }
     len, err = w:flush()
-    assert.equal(len, 0)
+    assert.is_nil(len)
     assert.equal(err, 'abort')
     assert.equal(w.buf, {
         'hello',
@@ -210,7 +210,7 @@ function testcase.flush()
         write = function()
             ncall = ncall + 1
             if ncall > 1 then
-                return 1, 'error'
+                return 1, nil, true
             end
             return 3
         end,
@@ -218,9 +218,11 @@ function testcase.flush()
     w.buf = {
         'hello',
     }
-    len, err = w:flush()
+    local timeout
+    len, err, timeout = w:flush()
     assert.equal(len, 4)
-    assert.equal(err, 'error')
+    assert.is_nil(err)
+    assert.is_true(timeout)
     assert.equal(w.buf, {
         'o',
     })
@@ -272,6 +274,15 @@ function testcase.writeout()
     assert.equal(msg, 'foo')
     assert.equal(ncall, 1)
 
+    -- test that abort if writer returns nil without error
+    w = writer.new({
+        write = function()
+        end,
+    })
+    len, err = w:writeout('foo')
+    assert.is_nil(len)
+    assert.is_nil(err)
+
     -- test that abort if writer return an error
     w = writer.new({
         write = function(_, data)
@@ -279,7 +290,7 @@ function testcase.writeout()
         end,
     })
     len, err = w:writeout('foo')
-    assert.equal(len, 3)
+    assert.is_nil(len)
     assert.equal(err, 'error')
 
     -- test that abort if writer return a timeout
@@ -320,15 +331,6 @@ function testcase.writeout()
         end,
     })
     err = assert.throws(w.writeout, w, 'foo')
-    assert.match(err, 'returned 0 with neither error nor timeout')
-
-    -- test that throws an error if writer returns nil without error
-    w = writer.new({
-        write = function()
-        end,
-    })
-    err = assert.throws(w.writeout, w, 'foo')
-    assert.match(err, 'returned nil without error')
-
+    assert.match(err, 'returned 0 with not timeout')
 end
 
