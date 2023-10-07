@@ -310,6 +310,7 @@ w = writer.new({
     --
     -- the caller throws an error in the following cases:
     --
+    --   * it returned n which is neither nil nor number.
     --   * it returned n less than 0.
     --   * it returned n greater than #s.
     --   * it returned 0 with not timeout when #s > 0.

@@ -188,7 +188,9 @@ function Writer:writeout(s)
     while len > 0 do
         local n, err, timeout = writer:write(s)
 
-        if n == nil or err then
+        if n ~= nil and type(n) ~= 'number' then
+            fatalf('writer:write() returned non-number value: %s', type(n))
+        elseif n == nil or err then
             -- connection closed by peer or got an error
             return nil, err
         elseif n < 0 then
