@@ -25,7 +25,7 @@ local pcall = pcall
 local remove = table.remove
 local type = type
 local fatalf = require('error').fatalf
-local is_uint = require('isa').uint
+local is_uint = require('lauxhlib.is').uint
 --- constants
 local MAX_BUFSIZE = 1024 * 4
 
