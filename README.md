@@ -403,6 +403,19 @@ print(w:available()) -- 3
 - `n:integer`: size of available buffer space.
 
 
+## n = Writer:bytes_out( [clear] )
+
+returns a number of bytes written to `dst`.
+
+**Parameters**
+
+- `clear:boolean`: `true` to clear the number of bytes written to `dst`. 
+
+**Returns**
+
+- `n:integer`: number of bytes written to `dst`.
+
+
 ## n = Writer:flushed()
 
 returns a size of the string flushed to `dst`.

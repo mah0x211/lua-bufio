@@ -35,6 +35,7 @@ local MAX_BUFSIZE = 1024 * 4
 --- @field buf string[]
 --- @field bufsize integer
 --- @field nflush integer
+--- @field nout integer
 local Writer = {}
 
 --- init
@@ -54,10 +55,11 @@ function Writer:init(dst)
     self.buf = {}
     self.bufsize = 0
     self.nflush = 0
+    self.nout = 0
     return self
 end
 
---- setbufsize
+--- setbufsize sets the size of the maximum buffer space in bytes
 --- @param n integer
 function Writer:setbufsize(n)
     if n == nil then
@@ -69,24 +71,36 @@ function Writer:setbufsize(n)
     end
 end
 
---- size
+--- size returns the size of the buffered data
 --- @return integer
 function Writer:size()
     return self.bufsize
 end
 
---- available
+--- available returns the size of the remaining buffer space
 --- @return integer
 function Writer:available()
     return self.maxbufsize - self.bufsize
 end
 
+--- bytes_out returns the number of bytes written out to the underlying writer
+--- @param clear boolean? clear the counter
+--- @return integer nout
+function Writer:bytes_out(clear)
+    local nout = self.nout
+    if clear == true then
+        self.nout = 0
+    end
+    return nout
+end
+
 --- flushed returns the number of flushed bytes
+--- @return integer nflush
 function Writer:flushed()
     return self.nflush
 end
 
---- flush
+--- flush writes any buffered data to the underlying writer
 --- @return integer? n
 --- @return any err
 --- @return boolean? timeout
@@ -123,7 +137,10 @@ function Writer:flush()
     return self.nflush
 end
 
---- write
+--- write stores data into the buffer and write it out to the underlying writer
+--- if the buffer space is not enough.
+--- at first, if the buffer space is not enough, it will be written buffered
+--- data out to the writer.
 --- @param s string
 --- @return integer? n
 --- @return any err
@@ -168,7 +185,7 @@ function Writer:write(s)
     return nwrite
 end
 
---- writeout
+--- writeout writes data directly to the underlying writer
 --- @param s string
 --- @return integer? n
 --- @return any err
@@ -200,6 +217,7 @@ function Writer:writeout(s)
                    len)
         end
 
+        self.nout = self.nout + n
         nwrite = nwrite + n
         if timeout then
             return nwrite, nil, true

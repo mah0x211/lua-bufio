@@ -1,6 +1,11 @@
 name: test
 
-on: [push]
+on:
+    push:
+      paths-ignore:
+        - '**.md'
+        - 'LICENSE'
+
 
 jobs:
   luacheck:
@@ -11,7 +16,7 @@ jobs:
       uses: actions/checkout@v2
     -
       name: Setup Lua
-      uses: leafo/gh-actions-lua@v8.0.0
+      uses: leafo/gh-actions-lua@v8
     -
       name: Setup Luarocks
       uses: leafo/gh-actions-luarocks@v4
@@ -32,7 +37,6 @@ jobs:
           - "5.2"
           - "5.3"
           - "5.4"
-          - "luajit-2.0.5"
           - "luajit-openresty"
     steps:
     -
@@ -42,7 +46,7 @@ jobs:
         submodules: 'true'
     -
       name: Setup Lua ${{ matrix.lua-version }}
-      uses: leafo/gh-actions-lua@v8.0.0
+      uses: leafo/gh-actions-lua@v8
       with:
         luaVersion: ${{ matrix.lua-version }}
     -
@@ -63,6 +67,7 @@ jobs:
         testcase ./test/
     -
       name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v2
+      uses: codecov/codecov-action@v4
       with:
+        token: ${{ secrets.CODECOV_TOKEN }}
         flags: unittests
