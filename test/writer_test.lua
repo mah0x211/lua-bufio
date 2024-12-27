@@ -1,5 +1,6 @@
 require('luacov')
 local testcase = require('testcase')
+local assert = require('assert')
 local writer = require('bufio.writer')
 
 function testcase.new()
@@ -334,3 +335,38 @@ function testcase.writeout()
     assert.match(err, 'returned 0 with not timeout')
 end
 
+function testcase.bytes_out()
+    local msg = ''
+    local ncall = 0
+    local w = writer.new({
+        write = function(_, data)
+            ncall = ncall + 1
+            msg = msg .. data
+            return #data
+        end,
+    })
+
+    -- test that update bytes_out counter
+    local len, err, timeout = w:writeout('foo')
+    assert.is_nil(err)
+    assert.is_nil(timeout)
+    assert.equal(len, 3)
+    assert.equal(w:bytes_out(), 3)
+
+    -- test that did not count bytes_out if data is buffering in writer
+    len, err, timeout = w:write('bar')
+    assert.is_nil(err)
+    assert.is_nil(timeout)
+    assert.equal(len, 3)
+    assert.equal(w:bytes_out(), 3)
+
+    -- test that update bytes_out counter if flush
+    len, err = w:flush()
+    assert.is_nil(err)
+    assert.equal(len, 3)
+    assert.equal(w:bytes_out(), 6)
+
+    -- test that clear bytes_out counter
+    assert.equal(w:bytes_out(true), 6)
+    assert.equal(w:bytes_out(), 0)
+end
