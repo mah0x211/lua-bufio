@@ -26,7 +26,7 @@ local pcall = pcall
 local type = type
 local fatalf = require('error').fatalf
 local new_errno = require('errno').new
-local is_uint = require('isa').uint
+local is_uint = require('lauxhlib.is').uint
 --- constants
 local DEFAULT_BUFSIZE = 1024 * 4
 

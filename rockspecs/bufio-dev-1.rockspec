@@ -13,7 +13,7 @@ dependencies = {
     "lua >= 5.1",
     "error >= 0.12.0",
     "errno >= 0.3.0",
-    "isa >= 0.2",
+    "lauxhlib >= 0.6.1",
     "metamodule >= 0.3",
 }
 build = {
