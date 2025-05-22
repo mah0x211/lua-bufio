@@ -323,7 +323,11 @@ w = writer.new({
 
 **Parameters**
 
-- `dst:table|userdata`: object that has a `write` method.
+- `dst:table|userdata`: a `table` or object that has a `write` method.
+    - if `dst` is a `table` without `write` function, it is treated as a data store and used as follows:
+      ```lua
+      dst[#dst + 1] = s
+      ```
 
 **Returns**
 

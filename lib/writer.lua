@@ -46,12 +46,27 @@ function Writer:init(dst)
     local ok, res = pcall(function()
         return type(dst.write) == 'function'
     end)
-    if not ok or not res then
-        error('dst.write must be function', 2)
+
+    if ok then
+        if res then
+            self.writer = dst
+        elseif type(dst) == 'table' and dst.write == nil then
+            self.writer = {
+                write = function(_, s)
+                    dst[#dst + 1] = s
+                    return #s
+                end,
+            }
+        else
+            ok = false
+        end
+    end
+
+    if not ok then
+        error('dst must be table or have write() method', 2)
     end
 
     self.maxbufsize = MAX_BUFSIZE
-    self.writer = dst
     self.buf = {}
     self.bufsize = 0
     self.nflush = 0
@@ -202,7 +217,7 @@ function Writer:writeout(s)
 
     local writer = self.writer
     local nwrite = 0
-    while len > 0 do
+    while true do
         local n, err, timeout = writer:write(s)
 
         if n ~= nil and type(n) ~= 'number' then
@@ -227,11 +242,10 @@ function Writer:writeout(s)
         elseif n == 0 then
             fatalf('writer:write() returned 0 with not timeout')
         end
+        -- write only part of data
         s = sub(s, n + 1)
         len = len - n
     end
-
-    return nwrite
 end
 
 return {

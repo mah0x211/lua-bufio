@@ -15,7 +15,6 @@ function testcase.new()
     for _, v in ipairs({
         true,
         0,
-        {},
         function()
         end,
         coroutine.create(function()
@@ -24,10 +23,10 @@ function testcase.new()
         local err = assert.throws(function()
             writer.new(v)
         end)
-        assert.match(err, 'dst.write must be function')
+        assert.match(err, 'dst must be table or have write() method')
     end
     local err = assert.throws(writer.new)
-    assert.match(err, 'dst.write must be function')
+    assert.match(err, 'dst must be table or have write() method')
 end
 
 function testcase.setbufsize()
@@ -369,4 +368,35 @@ function testcase.bytes_out()
     -- test that clear bytes_out counter
     assert.equal(w:bytes_out(true), 6)
     assert.equal(w:bytes_out(), 0)
+end
+
+function testcase.new_with_table()
+    -- test that create bufio.writer with a table
+    local dst = {}
+    local w = writer.new(dst)
+
+    -- test that writeout method write to table
+    local len, err = w:writeout('foo')
+    assert.equal(len, 3)
+    assert.is_nil(err)
+    assert.equal(dst, {
+        'foo',
+    })
+
+    -- test that add data to table
+    len, err = w:writeout('bar')
+    assert.equal(len, 3)
+    assert.is_nil(err)
+    assert.equal(dst, {
+        'foo',
+        'bar',
+    })
+
+    -- test that throw an error if dst.write is not a function
+    err = assert.throws(function()
+        writer.new({
+            write = 'foo',
+        })
+    end)
+    assert.match(err, 'dst must be table or have write() method')
 end
