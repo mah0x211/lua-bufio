@@ -25,12 +25,12 @@ function testcase.new()
         local err = assert.throws(function()
             reader.new(v)
         end)
-        assert.match(err, 'src.read must be function')
+        assert.match(err, 'src must be string or have read() method')
     end
     local err = assert.throws(function()
         reader.new()
     end)
-    assert.match(err, 'src.read must be function')
+    assert.match(err, 'src must be string or have read() method')
 end
 
 function testcase.setbufsize()
@@ -415,4 +415,20 @@ function testcase.readin()
     -- test that throws an error if n is not uint
     err = assert.throws(r.readin, r, true)
     assert.match(err, 'n must be uint')
+end
+
+function testcase.new_with_string()
+    local r = reader.new('hello world')
+
+    -- test that read from string
+    local data, err = assert(r:read(5))
+    assert.equal(data, 'hello')
+    assert.is_nil(err)
+
+    -- test that read all data
+    data = assert(r:read(20))
+    assert.equal(data, ' world')
+
+    -- test that return nil if no data
+    assert.is_nil(r:read(10))
 end
