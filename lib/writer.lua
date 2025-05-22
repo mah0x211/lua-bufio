@@ -202,7 +202,7 @@ function Writer:writeout(s)
 
     local writer = self.writer
     local nwrite = 0
-    while len > 0 do
+    while true do
         local n, err, timeout = writer:write(s)
 
         if n ~= nil and type(n) ~= 'number' then
@@ -227,11 +227,10 @@ function Writer:writeout(s)
         elseif n == 0 then
             fatalf('writer:write() returned 0 with not timeout')
         end
+        -- write only part of data
         s = sub(s, n + 1)
         len = len - n
     end
-
-    return nwrite
 end
 
 return {
