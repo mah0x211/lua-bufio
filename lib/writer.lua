@@ -46,12 +46,27 @@ function Writer:init(dst)
     local ok, res = pcall(function()
         return type(dst.write) == 'function'
     end)
-    if not ok or not res then
-        error('dst.write must be function', 2)
+
+    if ok then
+        if res then
+            self.writer = dst
+        elseif type(dst) == 'table' and dst.write == nil then
+            self.writer = {
+                write = function(_, s)
+                    dst[#dst + 1] = s
+                    return #s
+                end,
+            }
+        else
+            ok = false
+        end
+    end
+
+    if not ok then
+        error('dst must be table or have write() method', 2)
     end
 
     self.maxbufsize = MAX_BUFSIZE
-    self.writer = dst
     self.buf = {}
     self.bufsize = 0
     self.nflush = 0
