@@ -15,11 +15,11 @@ luarocks install bufio
 
 ---
 
-## bufio.Reader
+## bufio.reader
 
 ## r = reader.new( src )
 
-create a new bufio.Reader.
+create a new bufio.reader.
 
 ```lua
 local reader = require('bufio.reader')
@@ -57,7 +57,7 @@ r = reader.new({
 
 **Returns**
 
-- `r:bufio.Reader`: an instance of `bufio.Reader`.
+- `r:bufio.reader`: an instance of `bufio.reader`.
 
 
 ## Reader:setbufsize( [n] )
@@ -280,11 +280,11 @@ print(r:readin(10)) -- lo
 ***
 
 
-## bufio.Writer
+## bufio.writer
 
 ## w = writer.new( dst )
 
-create a new bufio.Writer.
+create a new bufio.writer.
 
 ```lua
 local writer = require('bufio.writer')
@@ -327,7 +327,7 @@ w = writer.new({
 
 **Returns**
 
-- `w:bufio.Writer`: an instance of `bufio.Writer`.
+- `w:bufio.writer`: an instance of `bufio.writer`.
 
 
 ## Writer:setbufsize( [n] )
