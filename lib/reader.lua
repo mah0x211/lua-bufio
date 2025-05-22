@@ -26,30 +26,47 @@ local pcall = pcall
 local type = type
 local fatalf = require('error').fatalf
 local new_errno = require('errno').new
+local is_str = require('lauxhlib.is').str
 local is_uint = require('lauxhlib.is').uint
 --- constants
 local DEFAULT_BUFSIZE = 1024 * 4
 
 --- @class bufio.reader
---- @field reader table|userdata
---- @field bufsize integer
+--- @field private reader table|userdata
+--- @field private bufsize integer
 --- @field buf string
 local Reader = {}
 
 --- new
---- @param src table|userdata
+--- @param src string|table|userdata
 --- @return bufio.reader
 --- @return string? err
 function Reader:init(src)
-    local ok, res = pcall(function()
-        return type(src.read) == 'function'
-    end)
-    if not ok or not res then
-        fatalf(2, 'src.read must be function')
+    if is_str(src) then
+        --- @cast src string
+        self.reader = {
+            read = function(_, n)
+                if n == 0 or #src == 0 then
+                    return nil
+                end
+
+                local s = sub(src, 1, n)
+                src = sub(src, n + 1)
+                return s
+            end,
+        }
+    else
+        --- @cast src table|userdata
+        local ok, res = pcall(function()
+            return type(src) == 'string' or type(src.read) == 'function'
+        end)
+        if not ok or not res then
+            fatalf(2, 'src must be string or have read() method')
+        end
+        self.reader = src
     end
 
     self.bufsize = DEFAULT_BUFSIZE
-    self.reader = src
     self.buf = ''
     return self
 end

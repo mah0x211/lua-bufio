@@ -19,7 +19,7 @@ luarocks install bufio
 
 ## r = reader.new( src )
 
-create a new bufio.reader.
+create a new `bufio.reader` instance.
 
 ```lua
 local reader = require('bufio.reader')
@@ -53,7 +53,7 @@ r = reader.new({
 
 **Parameters**
 
-- `src:table|userdata`: `table` or `userdata` with `read` method.
+- `src:string|table|userdata`: `string` or object that has a `read` method.
 
 **Returns**
 
